@@ -1,0 +1,30 @@
+export interface Transaction {
+  id: number;
+  trans_no?: string | null;
+  barge_details?: string | null;
+  plate?: string | null;
+  initial_net_wt?: number | string | null;
+  inbound?: string | null;
+  outbound?: string | null;
+  driver?: string | null;
+  type_veh?: string | null;
+  product?: string | null;
+  ws_no?: string | null;
+  dr_no?: string | null;
+  del_comp?: string | null;
+  del_address?: string | null;
+  gross_weight?: number | null;
+  tare_weight?: number | null;
+  net_weight?: number | null;
+  inbound_wt?: number | null;
+  outbound_wt?: number | null;
+  remarks?: string | null;
+  transac_date?: string | null;
+  date?: string | null;
+  status?: string | null;
+  vessel_id?: string | null;
+  weigher?: string | null;
+  no_of_bags?: number | string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
