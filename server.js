@@ -3,14 +3,19 @@ import express from 'express';
 import cors from 'cors';
 import sql from 'mssql';
 import bcrypt from 'bcrypt';
+import { createServer } from 'http';
 import { setupTrashRoutes } from './trash-routes.js';
 import { logAuditEntry, extractUsername, extractUserId } from './audit-utils.js';
+import { initializeSocketIO, notifyActivity } from './socket-io-server.js';
 
 dotenv.config();
 
 const app = express();
 const allowedOrigin = process.env.CLIENT_ORIGIN || '*';
-app.use(cors({ origin: allowedOrigin }));
+app.use(cors({ 
+  origin: allowedOrigin,
+  credentials: true 
+}));
 app.use(express.json());
 app.use(express.static('public'));
 
@@ -761,6 +766,13 @@ sql.connect(config)
             const username = extractUsername(req);
             const userId = extractUserId(req);
             await logAuditEntry(pool, sql, createdTransaction.id, 'CREATE', username, userId, 'Transaction created');
+            
+            // Broadcast real-time notification
+            try {
+              await notifyActivity('CREATE', createdTransaction, username, pool);
+            } catch (notifyError) {
+              console.error('Failed to send real-time notification:', notifyError);
+            }
           }
           
           res.status(201).json(createdTransaction);
@@ -813,6 +825,13 @@ sql.connect(config)
           const userId = extractUserId(req);
           const changedFields = entries.map(e => e.column).join(', ');
           await logAuditEntry(pool, sql, id, 'UPDATE', username, userId, `Updated fields: ${changedFields}`);
+          
+          // Broadcast real-time notification
+          try {
+            await notifyActivity('UPDATE', updatedTransaction, username, pool);
+          } catch (notifyError) {
+            console.error('Failed to send real-time notification:', notifyError);
+          }
           
           res.json(updatedTransaction);
         } catch (errInner) {
@@ -920,10 +939,188 @@ sql.connect(config)
     // Setup trash/restore routes
     setupTrashRoutes(app, pool, sql);
 
-    app.listen(port, () => {
+    // ===== NOTIFICATION ENDPOINTS =====
+
+    // Get notifications with pagination
+    app.get('/api/notifications', async (req, res) => {
+      try {
+        const page = parseInt(req.query.page) || 1;
+        const pageSize = parseInt(req.query.pageSize) || 100;
+        const offset = (page - 1) * pageSize;
+        const userId = req.query.user_id ? parseInt(req.query.user_id) : null;
+
+        const request = pool.request();
+        request.input('offset', sql.Int, offset);
+        request.input('pageSize', sql.Int, pageSize);
+
+        let whereClause = '';
+        if (userId) {
+          request.input('userId', sql.Int, userId);
+          whereClause = 'WHERE user_id = @userId OR user_id IS NULL';
+        }
+
+        // Get total count
+        const countResult = await request.query(`
+          SELECT COUNT(*) as total 
+          FROM [FTSS].[dbo].[notifications]
+          ${whereClause}
+        `);
+        const total = countResult.recordset[0].total;
+
+        // Get paginated notifications
+        const result = await request.query(`
+          SELECT 
+            id,
+            user_id,
+            username,
+            type,
+            title,
+            message,
+            action,
+            trans_id,
+            trans_no,
+            is_read,
+            is_dismissed,
+            created_at,
+            read_at,
+            metadata
+          FROM [FTSS].[dbo].[notifications]
+          ${whereClause}
+          ORDER BY created_at DESC
+          OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
+        `);
+
+        res.json({
+          notifications: result.recordset || [],
+          page,
+          pageSize,
+          total
+        });
+      } catch (err) {
+        console.error('GET /api/notifications error:', err);
+        res.status(500).json({ error: 'Failed to fetch notifications', details: err.message });
+      }
+    });
+
+    // Get unread notification count
+    app.get('/api/notifications/unread-count', async (req, res) => {
+      try {
+        const userId = req.query.user_id ? parseInt(req.query.user_id) : null;
+
+        const request = pool.request();
+        
+        let whereClause = 'WHERE is_read = 0 AND is_dismissed = 0';
+        if (userId) {
+          request.input('userId', sql.Int, userId);
+          whereClause += ' AND (user_id = @userId OR user_id IS NULL)';
+        }
+
+        const result = await request.query(`
+          SELECT COUNT(*) as unread_count
+          FROM [FTSS].[dbo].[notifications]
+          ${whereClause}
+        `);
+
+        res.json({ unread_count: result.recordset[0].unread_count });
+      } catch (err) {
+        console.error('GET /api/notifications/unread-count error:', err);
+        res.status(500).json({ error: 'Failed to fetch unread count', details: err.message });
+      }
+    });
+
+    // Mark notification as read
+    app.put('/api/notifications/:id/read', async (req, res) => {
+      try {
+        const id = parseInt(req.params.id, 10);
+        if (!id) {
+          return res.status(400).json({ error: 'Invalid notification ID' });
+        }
+
+        const request = pool.request();
+        request.input('id', sql.Int, id);
+
+        await request.query(`
+          UPDATE [FTSS].[dbo].[notifications]
+          SET is_read = 1, read_at = GETDATE()
+          WHERE id = @id
+        `);
+
+        res.json({ success: true, message: 'Notification marked as read' });
+      } catch (err) {
+        console.error('PUT /api/notifications/:id/read error:', err);
+        res.status(500).json({ error: 'Failed to mark notification as read', details: err.message });
+      }
+    });
+
+    // Mark all notifications as read
+    app.put('/api/notifications/mark-all-read', async (req, res) => {
+      try {
+        const userId = req.body.user_id ? parseInt(req.body.user_id) : null;
+
+        const request = pool.request();
+        
+        let whereClause = 'WHERE is_read = 0';
+        if (userId) {
+          request.input('userId', sql.Int, userId);
+          whereClause += ' AND (user_id = @userId OR user_id IS NULL)';
+        }
+
+        const result = await request.query(`
+          UPDATE [FTSS].[dbo].[notifications]
+          SET is_read = 1, read_at = GETDATE()
+          ${whereClause}
+        `);
+
+        res.json({ 
+          success: true, 
+          message: 'All notifications marked as read',
+          affected: result.rowsAffected[0] || 0
+        });
+      } catch (err) {
+        console.error('PUT /api/notifications/mark-all-read error:', err);
+        res.status(500).json({ error: 'Failed to mark notifications as read', details: err.message });
+      }
+    });
+
+    // Delete/dismiss notification
+    app.delete('/api/notifications/:id', async (req, res) => {
+      try {
+        const id = parseInt(req.params.id, 10);
+        if (!id) {
+          return res.status(400).json({ error: 'Invalid notification ID' });
+        }
+
+        const request = pool.request();
+        request.input('id', sql.Int, id);
+
+        await request.query(`
+          UPDATE [FTSS].[dbo].[notifications]
+          SET is_dismissed = 1
+          WHERE id = @id
+        `);
+
+        res.json({ success: true, message: 'Notification dismissed' });
+      } catch (err) {
+        console.error('DELETE /api/notifications/:id error:', err);
+        res.status(500).json({ error: 'Failed to dismiss notification', details: err.message });
+      }
+    });
+
+    // ===== END NOTIFICATION ENDPOINTS =====
+
+    // Create HTTP server and initialize Socket.IO for real-time notifications
+    const httpServer = createServer(app);
+    const io = initializeSocketIO(httpServer, allowedOrigin);
+
+    // Make pool and io available globally for real-time notifications
+    app.set('sqlPool', pool);
+    app.set('socketIO', io);
+
+    httpServer.listen(port, () => {
       console.log(`✅ Server running on port ${port}`);
       console.log(`📊 API available at: http://localhost:${port}/api`);
       console.log(`🔍 Test with: http://localhost:${port}/api/transac?page=1&pageSize=5`);
+      console.log(`🔌 WebSocket server ready for real-time notifications`);
     });
 
   })

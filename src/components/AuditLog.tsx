@@ -12,21 +12,21 @@ interface AuditLogProps {
 const getActionIcon = (action: string) => {
   switch (action) {
     case 'CREATE':
-      return <FileEdit className="w-4 h-4 text-green-600" />;
+      return <FileEdit className="w-4 h-4 text-green-600 dark:text-green-400" />;
     case 'UPDATE':
-      return <FileEdit className="w-4 h-4 text-blue-600" />;
+      return <FileEdit className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
     case 'DELETE':
-      return <Trash2 className="w-4 h-4 text-red-600" />;
+      return <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />;
     case 'RESTORE':
-      return <RotateCcw className="w-4 h-4 text-emerald-600" />;
+      return <RotateCcw className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />;
     case 'BULK_DELETE':
-      return <Package className="w-4 h-4 text-red-600" />;
+      return <Package className="w-4 h-4 text-red-600 dark:text-red-400" />;
     case 'BULK_RESTORE':
-      return <Package className="w-4 h-4 text-emerald-600" />;
+      return <Package className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />;
     case 'BULK_STATUS_UPDATE':
-      return <Package className="w-4 h-4 text-blue-600" />;
+      return <Package className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
     default:
-      return <AlertCircle className="w-4 h-4 text-gray-600" />;
+      return <AlertCircle className="w-4 h-4 text-gray-600 dark:text-enterprise-muted" />;
   }
 };
 
@@ -56,19 +56,19 @@ const getActionLabel = (action: string) => {
 const getActionColor = (action: string) => {
   switch (action) {
     case 'CREATE':
-      return 'bg-green-100 text-green-800 border-green-200';
+      return 'bg-green-100 dark:bg-status-success/20 text-green-800 dark:text-status-success border-green-200 dark:border-status-success/30';
     case 'UPDATE':
-      return 'bg-blue-100 text-blue-800 border-blue-200';
+      return 'bg-blue-100 dark:bg-status-info/20 text-blue-800 dark:text-status-info border-blue-200 dark:border-status-info/30';
     case 'DELETE':
     case 'BULK_DELETE':
-      return 'bg-red-100 text-red-800 border-red-200';
+      return 'bg-red-100 dark:bg-status-error/20 text-red-800 dark:text-status-error border-red-200 dark:border-status-error/30';
     case 'RESTORE':
     case 'BULK_RESTORE':
-      return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      return 'bg-emerald-100 dark:bg-status-success/20 text-emerald-800 dark:text-status-success border-emerald-200 dark:border-status-success/30';
     case 'BULK_STATUS_UPDATE':
-      return 'bg-purple-100 text-purple-800 border-purple-200';
+      return 'bg-purple-100 dark:bg-status-info/20 text-purple-800 dark:text-status-info border-purple-200 dark:border-status-info/30';
     default:
-      return 'bg-gray-100 text-gray-800 border-gray-200';
+      return 'bg-gray-100 dark:bg-midnight-700 text-gray-800 dark:text-enterprise-silver border-gray-200 dark:border-midnight-600';
   }
 };
 
@@ -118,12 +118,12 @@ const AuditLog: React.FC<AuditLogProps> = ({ transactionId, onClose }) => {
 
   return (
     <div className={`${transactionId ? 'fixed inset-0 z-50 flex items-center justify-center bg-black dark:bg-black bg-opacity-50' : ''}`}>
-      <div className={`bg-white dark:bg-slate-800 rounded-lg shadow-lg ${transactionId ? 'w-11/12 max-w-4xl max-h-[90vh] overflow-hidden' : 'w-full'}`}>
+      <div className={`bg-white dark:bg-midnight-800 rounded-lg shadow-lg ${transactionId ? 'w-11/12 max-w-4xl max-h-[90vh] overflow-hidden' : 'w-full'}`}>
         {/* Header */}
-        <div className="bg-gray-50 dark:bg-slate-750 px-6 py-4 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between">
+        <div className="bg-gray-50 dark:bg-midnight-750 px-6 py-4 border-b border-gray-200 dark:border-midnight-700 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <Clock className="w-5 h-5 text-gray-600 dark:text-slate-400" />
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">
+            <Clock className="w-5 h-5 text-gray-600 dark:text-enterprise-muted" />
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-enterprise-text">
               {transactionId ? `Transaction #${transactionId} Activity Log` : 'Activity Log'}
             </h2>
           </div>
@@ -131,7 +131,7 @@ const AuditLog: React.FC<AuditLogProps> = ({ transactionId, onClose }) => {
             <button
               onClick={loadAuditData}
               disabled={loading}
-              className="flex items-center space-x-2 px-3 py-2 text-sm bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-md hover:bg-gray-50 dark:hover:bg-slate-600 text-gray-700 dark:text-slate-200 disabled:opacity-50"
+              className="flex items-center space-x-2 px-3 py-2 text-sm bg-white dark:bg-midnight-700 border border-gray-300 dark:border-midnight-600 rounded-md hover:bg-gray-50 dark:hover:bg-midnight-600 text-gray-700 dark:text-enterprise-silver disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
@@ -139,7 +139,7 @@ const AuditLog: React.FC<AuditLogProps> = ({ transactionId, onClose }) => {
             {onClose && (
               <button
                 onClick={onClose}
-                className="flex items-center justify-center w-8 h-8 text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-md"
+                className="flex items-center justify-center w-8 h-8 text-gray-500 dark:text-enterprise-muted hover:text-gray-700 dark:hover:text-enterprise-silver hover:bg-gray-100 dark:hover:bg-midnight-700 rounded-md"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -148,11 +148,11 @@ const AuditLog: React.FC<AuditLogProps> = ({ transactionId, onClose }) => {
         </div>
 
         {/* Content */}
-        <div className={`${transactionId ? 'overflow-y-auto max-h-[calc(90vh-140px)]' : ''} p-6 bg-white dark:bg-slate-800`}>
+        <div className={`${transactionId ? 'overflow-y-auto max-h-[calc(90vh-140px)]' : ''} p-6 bg-white dark:bg-midnight-800`}>
           {loading && (
             <div className="flex items-center justify-center py-8">
-              <RefreshCw className="w-6 h-6 animate-spin text-blue-600 dark:text-blue-400" />
-              <span className="ml-2 text-gray-600 dark:text-slate-400">Loading audit log...</span>
+              <RefreshCw className="w-6 h-6 animate-spin text-blue-600 dark:text-neon-cyan-glow" />
+              <span className="ml-2 text-gray-600 dark:text-enterprise-muted">Loading audit log...</span>
             </div>
           )}
 
@@ -168,7 +168,7 @@ const AuditLog: React.FC<AuditLogProps> = ({ transactionId, onClose }) => {
           {auditData && !loading && (
             <>
               {auditData.rows.length === 0 ? (
-                <div className="text-center py-8 text-gray-500 dark:text-slate-400">
+                <div className="text-center py-8 text-gray-500 dark:text-enterprise-muted">
                   <Clock className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>No activity found</p>
                 </div>
@@ -179,7 +179,7 @@ const AuditLog: React.FC<AuditLogProps> = ({ transactionId, onClose }) => {
                     return (
                       <div
                         key={entry.id}
-                        className="bg-white dark:bg-slate-750 border border-gray-200 dark:border-slate-700 rounded-lg p-4 hover:shadow-md dark:hover:shadow-slate-900/50 transition-shadow"
+                        className="bg-white dark:bg-midnight-750 border border-gray-200 dark:border-midnight-700 rounded-lg p-4 hover:shadow-md dark:hover:shadow-slate-900/50 transition-shadow"
                       >
                         <div className="flex items-start space-x-3">
                           <div className="flex-shrink-0">
@@ -192,28 +192,28 @@ const AuditLog: React.FC<AuditLogProps> = ({ transactionId, onClose }) => {
                                   {getActionLabel(entry.action)}
                                 </span>
                                 {!transactionId && entry.trans_no && (
-                                  <span className="text-sm text-gray-600 dark:text-slate-400">
+                                  <span className="text-sm text-gray-600 dark:text-enterprise-muted">
                                     Transaction: {entry.trans_no}
                                   </span>
                                 )}
                               </div>
-                              <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-slate-400">
+                              <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-enterprise-muted">
                                 <User className="w-4 h-4" />
                                 <span>{entry.username}</span>
                               </div>
                             </div>
                             
                             {entry.details && (
-                              <p className="text-sm text-gray-700 dark:text-slate-300 mb-2">{entry.details}</p>
+                              <p className="text-sm text-gray-700 dark:text-enterprise-silver mb-2">{entry.details}</p>
                             )}
                             
                             {!transactionId && entry.driver && (
-                              <p className="text-sm text-gray-600 dark:text-slate-400 mb-2">
+                              <p className="text-sm text-gray-600 dark:text-enterprise-muted mb-2">
                                 Driver: {entry.driver}
                               </p>
                             )}
                             
-                            <div className="flex items-center text-xs text-gray-500 dark:text-slate-400">
+                            <div className="flex items-center text-xs text-gray-500 dark:text-enterprise-muted">
                               <Clock className="w-3 h-3 mr-1" />
                               <span title={dateTime.full}>{dateTime.relative}</span>
                             </div>
@@ -227,15 +227,15 @@ const AuditLog: React.FC<AuditLogProps> = ({ transactionId, onClose }) => {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 dark:border-slate-700">
-                  <div className="text-sm text-gray-700 dark:text-slate-300">
+                <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 dark:border-midnight-700">
+                  <div className="text-sm text-gray-700 dark:text-enterprise-silver">
                     Page {page} of {totalPages} ({auditData.total} total entries)
                   </div>
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => setPage(page - 1)}
                       disabled={page === 1}
-                      className="flex items-center px-3 py-1 text-sm border border-gray-300 dark:border-slate-600 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                      className="flex items-center px-3 py-1 text-sm border border-gray-300 dark:border-midnight-600 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-midnight-700 dark:bg-midnight-800 dark:text-enterprise-silver"
                     >
                       <ChevronLeft className="w-4 h-4 mr-1" />
                       Previous
@@ -243,7 +243,7 @@ const AuditLog: React.FC<AuditLogProps> = ({ transactionId, onClose }) => {
                     <button
                       onClick={() => setPage(page + 1)}
                       disabled={page >= totalPages}
-                      className="flex items-center px-3 py-1 text-sm border border-gray-300 dark:border-slate-600 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                      className="flex items-center px-3 py-1 text-sm border border-gray-300 dark:border-midnight-600 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-midnight-700 dark:bg-midnight-800 dark:text-enterprise-silver"
                     >
                       Next
                       <ChevronRight className="w-4 h-4 ml-1" />

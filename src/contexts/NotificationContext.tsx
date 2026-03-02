@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { CheckCircle, XCircle, AlertCircle, Info, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { io, Socket } from 'socket.io-client';
 
 export interface Notification {
   id: string;
@@ -8,6 +10,9 @@ export interface Notification {
   message?: string;
   autoHide?: boolean;
   duration?: number; // milliseconds
+  trans_id?: number; // Transaction ID for clickable notifications
+  clickable?: boolean; // Whether notification is clickable
+  action?: string; // Action type (CREATE, UPDATE, DELETE, etc.)
 }
 
 interface NotificationContextType {
@@ -15,6 +20,7 @@ interface NotificationContextType {
   addNotification: (notification: Omit<Notification, 'id'>) => void;
   removeNotification: (id: string) => void;
   clearAll: () => void;
+  socket: Socket | null; // Expose socket for authentication
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -60,9 +66,10 @@ const getNotificationStyles = (type: Notification['type']) => {
 interface NotificationItemProps {
   notification: Notification;
   onClose: (id: string) => void;
+  onNavigate?: (trans_id: number) => void;
 }
 
-const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onClose }) => {
+const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onClose, onNavigate }) => {
   React.useEffect(() => {
     if (notification.autoHide !== false) {
       const duration = notification.duration || 5000;
@@ -74,10 +81,19 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onClo
     }
   }, [notification, onClose]);
 
+  const handleClick = () => {
+    if (notification.clickable && notification.trans_id && onNavigate) {
+      onNavigate(notification.trans_id);
+      onClose(notification.id);
+    }
+  };
+
   return (
     <div
+      onClick={handleClick}
       className={`max-w-sm w-full border rounded-lg shadow-lg p-4 transition-all transform
         ${getNotificationStyles(notification.type)} 
+        ${notification.clickable ? 'cursor-pointer hover:shadow-xl hover:scale-105' : ''}
         animate-in slide-in-from-right-full duration-300`}
     >
       <div className="flex items-start">
@@ -89,10 +105,16 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onClo
           {notification.message && (
             <p className="text-sm mt-1 opacity-90">{notification.message}</p>
           )}
+          {notification.clickable && (
+            <p className="text-xs mt-1 opacity-70 italic">Click to view details</p>
+          )}
         </div>
         <div className="ml-4 flex-shrink-0">
           <button
-            onClick={() => onClose(notification.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose(notification.id);
+            }}
             className="inline-flex rounded-md p-1 hover:bg-black hover:bg-opacity-10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-current"
           >
             <X className="w-4 h-4" />
@@ -109,6 +131,87 @@ interface NotificationProviderProps {
 
 export const NotificationProvider: React.FC<NotificationProviderProps> = ({ children }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const navigate = useNavigate();
+
+  // Initialize Socket.IO connection
+  useEffect(() => {
+    // Prevent double initialization in React StrictMode
+    // Return empty cleanup on second run to prevent disconnect
+    if (socketRef.current) {
+      return () => {}; // Empty cleanup function for StrictMode second run
+    }
+    const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3001';
+    
+    console.log('🔌 Connecting to WebSocket server:', SOCKET_URL);
+    const socketInstance = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+    });
+
+    socketInstance.on('connect', () => {
+      console.log('✅ WebSocket connected:', socketInstance.id);
+      
+      // Authenticate with user data from localStorage/cookies if available
+      const authData = localStorage.getItem('auth');
+      if (authData) {
+        try {
+          const { username, email } = JSON.parse(authData);
+          socketInstance.emit('authenticate', { username, email });
+        } catch (err) {
+          console.error('Failed to parse auth data for socket authentication');
+        }
+      }
+    });
+
+    socketInstance.on('connect_error', (error) => {
+      console.error('❌ WebSocket connection error:', error);
+    });
+
+    socketInstance.on('disconnect', (reason) => {
+      console.warn('🔌 WebSocket disconnected:', reason);
+    });
+
+    // Listen for real-time notifications
+    socketInstance.on('new_notification', (notification: Omit<Notification, 'id'>) => {
+      console.log('📬 Received real-time notification:', notification);
+      
+      // Add notification with unique ID
+      const id = Date.now().toString() + Math.random().toString(36).substring(2);
+      const newNotification: Notification = {
+        id,
+        autoHide: notification.autoHide ?? true,
+        duration: notification.duration ?? 5000,
+        ...notification,
+      };
+      
+      setNotifications(prev => [newNotification, ...prev.slice(0, 4)]); // Keep max 5 notifications
+      
+      // Dispatch custom event for unread count update
+      window.dispatchEvent(new CustomEvent('notification-received', { detail: notification }));
+      
+      // Play notification sound (optional)
+      try {
+        const audio = new Audio('/notification.mp3'); // You can add a notification sound file
+        audio.play().catch(() => {/* Ignore if sound fails */});
+      } catch (err) {
+        // Ignore sound errors
+      }
+    });
+
+    setSocket(socketInstance);
+    socketRef.current = socketInstance;
+
+    // Cleanup on unmount - only disconnect the actual socket once
+    return () => {
+      console.log('🔌 Disconnecting WebSocket');
+      socketInstance.disconnect();
+      socketRef.current = null;
+    };
+  }, []);
 
   const addNotification = useCallback((notification: Omit<Notification, 'id'>) => {
     const id = Math.random().toString(36).substring(2);
@@ -130,12 +233,18 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     setNotifications([]);
   }, []);
 
+  const handleNavigate = useCallback((trans_id: number) => {
+    // Navigate to Dashboard with Activity Log tab and filtered to specific transaction
+    navigate(`/dashboard?tab=auditlog&trans_id=${trans_id}`);
+  }, [navigate]);
+
   return (
     <NotificationContext.Provider value={{
       notifications,
       addNotification,
       removeNotification,
       clearAll,
+      socket,
     }}>
       {children}
       
@@ -146,6 +255,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
             <NotificationItem 
               notification={notification} 
               onClose={removeNotification}
+              onNavigate={handleNavigate}
             />
           </div>
         ))}

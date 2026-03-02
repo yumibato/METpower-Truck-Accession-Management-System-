@@ -22,7 +22,6 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { format } from 'date-fns';
 import { Transaction } from '../types/Transaction';
 import TransactionModal from './TransactionModal';
-import { saveAs } from 'file-saver';
 import { useToast } from '../contexts/NotificationContext';
 
 // Text highlighting component
@@ -252,7 +251,6 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
   const [showBulkStatusModal, setShowBulkStatusModal] = useState(false);
   const [bulkStatusValue, setBulkStatusValue] = useState('Valid');
   const [bulkError, setBulkError] = useState('');
-  const [bulkSuccess, setBulkSuccess] = useState('');
 
   // Server-driven calendar data fetching
   const fetchCalendarData = async (year: number, month: number) => {
@@ -326,7 +324,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
     return dayStr >= (startDateStr || '') && dayStr <= (endDateStr || '');
   };
 
-  const isDateSelected = (day: Date | null, start: Date | null, end: Date | null) => {
+  const isDateSelected = (day: Date | null) => {
     if (!day) return false;
     // Use pure UTC date strings for comparison
     const dayStr = getPureDateString(day);
@@ -450,7 +448,9 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
     }
   };
 
-  const handleBulkRestore = async () => {
+  // Bulk restore function - available for future use
+  // @ts-ignore - Intentionally unused, kept for future feature
+  const _handleBulkRestore = async () => {
     if (selectedIds.size === 0) {
       toast.warning('No Selection', 'Please select transactions to restore');
       return;
@@ -1235,17 +1235,17 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-midnight-950 dark:via-midnight-950 dark:to-midnight-950">
       <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header Section */}
         <div className="mb-6">
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 overflow-hidden">
+          <div className="bg-white dark:bg-midnight-800 rounded-xl shadow-lg border border-gray-200 dark:border-midnight-700 overflow-hidden">
             <div className="p-6">
               {/* Title Row */}
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6">
                 <div className="mb-4 lg:mb-0">
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100 tracking-tight">Transaction Records</h1>
-                  <p className="text-gray-600 dark:text-slate-400 text-sm mt-1">
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-enterprise-text tracking-tight">Transaction Records</h1>
+                  <p className="text-gray-600 dark:text-enterprise-muted text-sm mt-1">
                     {total === 0 ? '0 of 0 transactions' : `${startIndex} - ${endIndex} of ${total} transactions`}
                   </p>
                 </div>
@@ -1255,7 +1255,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                   <button
                     onClick={() => onRefresh()}
                     disabled={refreshing || loading}
-                    className="flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-neon-cyan-glow dark:hover:bg-neon-cyan-bright text-white font-medium rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Refresh data"
                   >
                     <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
@@ -1290,7 +1290,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                         setLocalSearchTerm(e.target.value);
                       }}
                       disabled={loading}
-                      className={`w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition-colors duration-200 ${
+                      className={`w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-neon-cyan-glow focus:border-neon-cyan-glow text-sm transition-colors duration-200 ${
                         loading ? 'bg-gray-100 cursor-not-allowed' : localSearchTerm ? 'bg-yellow-50 border-yellow-300' : 'bg-white'
                       }`}
                     />
@@ -1314,8 +1314,8 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                 {/* Search Results Indicator */}
                 {localSearchTerm.trim() && (
                   <div className="flex-1 md:max-w-xs">
-                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2 text-sm">
-                      <span className="font-medium text-blue-700 dark:text-blue-400">
+                    <div className="bg-blue-50 dark:bg-neon-cyan-glow/20 border border-blue-200 dark:border-neon-cyan-glow/30 rounded-lg px-3 py-2 text-sm">
+                      <span className="font-medium text-blue-700 dark:text-neon-cyan-glow">
                         Found {displayData.length} result{displayData.length !== 1 ? 's' : ''} for 
                         <mark className="bg-yellow-200 dark:bg-yellow-900/40 text-yellow-900 dark:text-yellow-200 px-1 rounded mx-1">
                           "{localSearchTerm}"
@@ -1330,7 +1330,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                   <button
                     onClick={() => setShowDatePicker(!showDatePicker)}
                     disabled={loading}
-                    className="flex items-center justify-center px-4 py-2.5 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600 text-gray-700 dark:text-slate-200 text-sm font-medium transition-colors duration-200"
+                    className="flex items-center justify-center px-4 py-2.5 bg-white dark:bg-midnight-700 border border-gray-300 dark:border-midnight-600 rounded-lg hover:bg-gray-50 dark:hover:bg-midnight-600 text-gray-700 dark:text-enterprise-silver text-sm font-medium transition-colors duration-200"
                   >
                     <Calendar className="h-4 w-4 mr-2" />
                     <span className="whitespace-nowrap">
@@ -1383,7 +1383,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                       onDateRangeChange(null, null);
                     }
                   }}
-                  className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+                  className="text-sm text-blue-600 dark:text-neon-cyan-glow hover:text-blue-800 dark:hover:text-neon-cyan-bright transition-colors"
                   onMouseDown={(e) => e.stopPropagation()}
                 >
                   Clear Selection
@@ -1401,7 +1401,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                         const currentYear = calendarData ? calendarData.year : getCalendarReferenceDate().getFullYear();
                         fetchCalendarData(currentYear, currentMonth + 1);
                       }}
-                      className="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-slate-700 dark:text-slate-200"
+                      className="px-4 py-2 border border-gray-300 dark:border-midnight-600 rounded-lg focus:ring-2 focus:ring-neon-cyan-glow focus:border-transparent text-sm bg-white dark:bg-midnight-700 dark:text-enterprise-silver"
                       onMouseDown={(e) => e.stopPropagation()}
                     >
                       {['January', 'February', 'March', 'April', 'May', 'June', 
@@ -1417,7 +1417,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                         const newYear = parseInt(e.target.value);
                         fetchCalendarData(newYear, currentMonth + 1);
                       }}
-                      className="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-slate-700 dark:text-slate-200"
+                      className="px-4 py-2 border border-gray-300 dark:border-midnight-600 rounded-lg focus:ring-2 focus:ring-neon-cyan-glow focus:border-transparent text-sm bg-white dark:bg-midnight-700 dark:text-enterprise-silver"
                       onMouseDown={(e) => e.stopPropagation()}
                     >
                       {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i).map(year => (
@@ -1430,7 +1430,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                   <div className="grid grid-cols-7 gap-1 text-center">
                     {/* Weekday headers */}
                     {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-                      <div key={index} className="text-xs font-medium text-gray-500 dark:text-slate-400 py-2">
+                      <div key={index} className="text-xs font-medium text-gray-500 dark:text-enterprise-muted py-2">
                         {day}
                       </div>
                     ))}
@@ -1438,7 +1438,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                     {calendarLoading ? (
                       <div className="col-span-7 text-center py-8">
                         <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-600 border-t-transparent mx-auto mb-2"></div>
-                        <div className="text-sm text-gray-500 dark:text-slate-400">Loading calendar...</div>
+                        <div className="text-sm text-gray-500 dark:text-enterprise-muted">Loading calendar...</div>
                       </div>
                     ) : calendarData ? (
                       calendarData.calendarDays.map((calendarDay, index) => {
@@ -1455,13 +1455,13 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                               !calendarDay.isInMonth
                                 ? 'invisible'
                                 : !calendarDay.hasTransactions
-                                ? 'text-gray-400 dark:text-slate-500 hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer'
+                                ? 'text-gray-400 dark:text-enterprise-muted hover:bg-gray-50 dark:hover:bg-midnight-700 cursor-pointer'
                                 : isDateInRange(date, startDate ?? null, endDate ?? null)
-                                ? 'bg-blue-600 dark:bg-blue-700 text-white'
-                                : isDateSelected(date, startDate ?? null, endDate ?? null)
-                                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                                : 'hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300 cursor-pointer'
-                            } ${calendarDay.isToday ? 'ring-2 ring-blue-400 dark:ring-blue-500' : ''}`}
+                                ? 'bg-blue-600 dark:bg-neon-cyan-glow text-white'
+                                : isDateSelected(date)
+                                ? 'bg-blue-100 dark:bg-neon-cyan-glow/20 text-blue-600 dark:text-neon-cyan-glow'
+                                : 'hover:bg-gray-100 dark:hover:bg-midnight-700 text-gray-700 dark:text-enterprise-silver cursor-pointer'
+                            } ${calendarDay.isToday ? 'ring-2 ring-blue-400 dark:ring-neon-cyan-glow' : ''}`}
                             disabled={!calendarDay.isInMonth}
                           >
                             {calendarDay.day}
@@ -1476,23 +1476,23 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                   </div>
 
                   {/* Date Range Display */}
-                  <div className="mt-6 p-4 bg-gray-50 dark:bg-slate-750 rounded-lg">
-                    <div className="text-center text-sm text-gray-600 dark:text-slate-400">
+                  <div className="mt-6 p-4 bg-gray-50 dark:bg-midnight-750 rounded-lg">
+                    <div className="text-center text-sm text-gray-600 dark:text-enterprise-muted">
                       {startDateStr && endDateStr ? (
                         <>
-                          <div className="font-medium text-gray-900 dark:text-slate-200">
+                          <div className="font-medium text-gray-900 dark:text-enterprise-silver">
                             {formatDateFromString(startDateStr)} - {formatDateFromString(endDateStr)}
                           </div>
-                          <div className="text-xs text-gray-500 dark:text-slate-400 mt-1">
+                          <div className="text-xs text-gray-500 dark:text-enterprise-muted mt-1">
                             {calculateDaysFromStrings(startDateStr, endDateStr)} days selected
                           </div>
                         </>
                       ) : startDateStr ? (
-                        <div className="font-medium text-gray-900 dark:text-slate-200">
+                        <div className="font-medium text-gray-900 dark:text-enterprise-silver">
                           {formatDateFromString(startDateStr)}
                         </div>
                       ) : (
-                        <div className="text-gray-500 dark:text-slate-400">Select a date range</div>
+                        <div className="text-gray-500 dark:text-enterprise-muted">Select a date range</div>
                       )}
                     </div>
                   </div>
@@ -1522,13 +1522,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
         {/* Bulk Actions Toolbar */}
         {selectedIds.size > 0 && (
           <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-4 shadow-md">
-            {/* Success/Error Messages */}
-            {bulkSuccess && (
-              <div className="mb-4 p-3 bg-green-100 border border-green-400 rounded-lg flex items-center gap-2">
-                <CheckSquare className="h-5 w-5 text-green-600" />
-                <p className="text-green-800 text-sm">{bulkSuccess}</p>
-              </div>
-            )}
+            {/* Error Messages */}
             {bulkError && (
               <div className="mb-4 p-3 bg-red-100 border border-red-400 rounded-lg flex items-center gap-2">
                 <AlertCircle className="h-5 w-5 text-red-600" />
@@ -1544,7 +1538,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                 </span>
                 <button
                   onClick={() => setSelectedIds(new Set())}
-                  className="text-sm text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200 transition-colors"
+                  className="text-sm text-gray-600 dark:text-enterprise-muted hover:text-gray-900 dark:hover:text-enterprise-silver transition-colors"
                 >
                   Clear selection
                 </button>
@@ -1554,7 +1548,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                 <button
                   onClick={() => setShowBulkStatusModal(true)}
                   disabled={bulkLoading}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-neon-cyan-glow dark:hover:bg-neon-cyan-bright text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                   title="Update status for selected transactions"
                 >
                   <ArrowUpDown className="h-4 w-4" />
@@ -1578,14 +1572,14 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
         {/* Bulk Status Update Modal */}
         {showBulkStatusModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100 mb-4">Update Status</h2>
-              <p className="text-gray-600 dark:text-slate-400 mb-4">Update status for {selectedIds.size} selected transaction(s)</p>
+            <div className="bg-white dark:bg-midnight-800 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-enterprise-text mb-4">Update Status</h2>
+              <p className="text-gray-600 dark:text-enterprise-muted mb-4">Update status for {selectedIds.size} selected transaction(s)</p>
               
               <select
                 value={bulkStatusValue}
                 onChange={(e) => setBulkStatusValue(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-6 bg-white dark:bg-slate-700 dark:text-slate-200"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-midnight-600 rounded-lg focus:ring-2 focus:ring-neon-cyan-glow focus:border-transparent mb-6 bg-white dark:bg-midnight-700 dark:text-enterprise-silver"
               >
                 <option value="Valid">Valid</option>
                 <option value="Pending">Pending</option>
@@ -1596,7 +1590,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowBulkStatusModal(false)}
-                  className="flex-1 px-4 py-2 bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 text-gray-800 dark:text-slate-200 rounded-lg font-medium transition-colors"
+                  className="flex-1 px-4 py-2 bg-gray-200 dark:bg-midnight-700 hover:bg-gray-300 dark:hover:bg-midnight-600 text-gray-800 dark:text-enterprise-silver rounded-lg font-medium transition-colors"
                   disabled={bulkLoading}
                 >
                   Cancel
@@ -1604,7 +1598,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                 <button
                   onClick={handleBulkStatusUpdate}
                   disabled={bulkLoading}
-                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-neon-cyan-glow dark:hover:bg-neon-cyan-bright text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {bulkLoading ? 'Updating...' : 'Update'}
                 </button>
@@ -1629,41 +1623,41 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
             </div>
           ) : displayData.length === 0 ? (
             <div className="p-12 text-center">
-              <div className="text-gray-400 dark:text-slate-500 mb-6">
+              <div className="text-gray-400 dark:text-enterprise-muted mb-6">
                 <Search className="h-12 w-12 mx-auto" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-slate-200 mb-3">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-enterprise-silver mb-3">
                 {localSearchTerm ? 'No matching transactions found' : 'No transactions found'}
               </h3>
-              <p className="text-gray-600 dark:text-slate-400">
+              <p className="text-gray-600 dark:text-enterprise-muted">
                 {localSearchTerm ? 'Try adjusting your search terms or filters.' : 'Start by creating a new truck accession ticket.'}
               </p>
             </div>
           ) : (
             <div className="overflow-x-auto overflow-y-visible">
               <table className="min-w-[2000px] w-full">
-                <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-slate-800 dark:to-slate-800 border-b border-gray-200 dark:border-slate-700">
+                <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-midnight-800 dark:to-midnight-800 border-b border-gray-200 dark:border-midnight-700">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-slate-400 uppercase tracking-wider w-12">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-enterprise-muted uppercase tracking-wider w-12">
                       <button
                         onClick={toggleSelectAll}
-                        className="inline-flex items-center justify-center p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
+                        className="inline-flex items-center justify-center p-1 rounded hover:bg-gray-200 dark:hover:bg-midnight-700 transition-colors"
                         title={selectedIds.size === transactions.length ? "Deselect all" : "Select all"}
                       >
                         {selectedIds.size === transactions.length && transactions.length > 0 ? (
-                          <CheckSquare className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                          <CheckSquare className="h-4 w-4 text-blue-600 dark:text-neon-cyan-glow" />
                         ) : (
-                          <Square className="h-4 w-4 text-gray-400 dark:text-slate-500" />
+                          <Square className="h-4 w-4 text-gray-400 dark:text-enterprise-muted" />
                         )}
                       </button>
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-slate-400 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-enterprise-muted uppercase tracking-wider">
                       Actions
                     </th>
                     {MEMOIZED_TABLE_COLUMNS.map((column: ColumnDefinition, index: number) => (
                       <th
                         key={column.key as string}
-                        className={`px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-slate-400 uppercase tracking-wider ${
+                        className={`px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-enterprise-muted uppercase tracking-wider ${
                           column.className || ''
                         }`}
                       >
@@ -1672,24 +1666,24 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+                <tbody className="divide-y divide-gray-100 dark:divide-midnight-700">
                   {displayData.map((transaction: Transaction, index: number) => (
                     <tr 
                       key={transaction.id} 
-                      className={`hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 dark:hover:from-slate-800/50 dark:hover:to-slate-800/50 transition-all duration-200 ${
-                        index % 2 === 0 ? 'bg-white dark:bg-slate-850' : 'bg-gray-50/50 dark:bg-slate-800'
+                      className={`hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 dark:hover:from-midnight-800/50 dark:hover:to-midnight-800/50 transition-all duration-200 ${
+                        index % 2 === 0 ? 'bg-white dark:bg-midnight-800' : 'bg-gray-50/50 dark:bg-midnight-800'
                       }`}
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-left text-sm font-medium">
                         <button
                           onClick={() => toggleSelectId(transaction.id as number)}
-                          className="inline-flex items-center justify-center p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
+                          className="inline-flex items-center justify-center p-1 rounded hover:bg-gray-200 dark:hover:bg-midnight-700 transition-colors"
                           title={selectedIds.has(transaction.id as number) ? "Deselect" : "Select"}
                         >
                           {selectedIds.has(transaction.id as number) ? (
-                            <CheckSquare className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                            <CheckSquare className="h-4 w-4 text-blue-600 dark:text-neon-cyan-glow" />
                           ) : (
-                            <Square className="h-4 w-4 text-gray-400 dark:text-slate-500" />
+                            <Square className="h-4 w-4 text-gray-400 dark:text-enterprise-muted" />
                           )}
                         </button>
                       </td>
@@ -1705,7 +1699,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                           </button>
                           <button
                             onClick={() => openDetails(transaction.id as number, 'view')}
-                            className="inline-flex items-center justify-center p-2 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg transition-all duration-200 hover:scale-110"
+                            className="inline-flex items-center justify-center p-2 bg-blue-50 dark:bg-neon-cyan-glow/20 hover:bg-blue-100 dark:hover:bg-neon-cyan-glow/30 text-blue-600 dark:text-neon-cyan-glow rounded-lg transition-all duration-200 hover:scale-110"
                             title="View Details"
                           >
                             <Eye className="h-4 w-4" />
@@ -1730,7 +1724,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                       {MEMOIZED_TABLE_COLUMNS.map((column: ColumnDefinition) => (
                         <td
                           key={column.key as string}
-                          className={`px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-slate-300 ${
+                          className={`px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-enterprise-silver ${
                             column.className || ''
                           }`}
                         >
@@ -1747,15 +1741,15 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
 
         {/* Pagination Footer */}
         {total > 0 && (
-          <div className="mt-6 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 dark:border-slate-700/20 p-6">
+          <div className="mt-6 bg-white/80 dark:bg-midnight-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 dark:border-midnight-700/20 p-6">
             <div className="flex flex-col lg:flex-row items-center justify-between space-y-4 lg:space-y-0">
               {/* Items per page selector */}
               <div className="flex items-center space-x-3">
-                <span className="text-sm font-medium text-gray-700 dark:text-slate-300">Show:</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-enterprise-silver">Show:</span>
                 <select
                   value={pageSize}
                   onChange={(e) => onPageSizeChange(Number(e.target.value))}
-                  className="px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg bg-white/90 dark:bg-slate-700 backdrop-blur-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm hover:shadow-md transition-all duration-200 dark:text-slate-200"
+                  className="px-4 py-2 border border-gray-200 dark:border-midnight-600 rounded-lg bg-white/90 dark:bg-midnight-700 backdrop-blur-sm text-sm focus:ring-2 focus:ring-neon-cyan-glow focus:border-transparent shadow-sm hover:shadow-md transition-all duration-200 dark:text-enterprise-silver"
                 >
                   <option value={10}>10 rows</option>
                   <option value={20}>20 rows</option>
@@ -1770,7 +1764,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                 <button
                   onClick={() => handlePageChange(1)}
                   disabled={page === 1}
-                  className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-600 dark:text-slate-300 bg-white/90 dark:bg-slate-700/90 backdrop-blur-sm border border-gray-200 dark:border-slate-600 rounded-lg shadow-sm hover:shadow-md hover:bg-white dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-600 dark:text-enterprise-silver bg-white/90 dark:bg-midnight-700/90 backdrop-blur-sm border border-gray-200 dark:border-midnight-600 rounded-lg shadow-sm hover:shadow-md hover:bg-white dark:hover:bg-midnight-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                   aria-label="First page"
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -1779,7 +1773,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                 <button
                   onClick={() => handlePageChange(page - 1)}
                   disabled={page === 1}
-                  className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-600 dark:text-slate-300 bg-white/90 dark:bg-slate-700/90 backdrop-blur-sm border border-gray-200 dark:border-slate-600 rounded-lg shadow-sm hover:shadow-md hover:bg-white dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-600 dark:text-enterprise-silver bg-white/90 dark:bg-midnight-700/90 backdrop-blur-sm border border-gray-200 dark:border-midnight-600 rounded-lg shadow-sm hover:shadow-md hover:bg-white dark:hover:bg-midnight-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                   aria-label="Previous page"
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -1793,10 +1787,10 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                     disabled={typeof pageNum !== 'number'}
                     className={`inline-flex items-center justify-center px-3 py-2 text-sm font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200 ${
                       typeof pageNum !== 'number'
-                        ? 'bg-gray-100 dark:bg-slate-700 text-gray-400 dark:text-slate-500 cursor-not-allowed'
+                        ? 'bg-gray-100 dark:bg-midnight-700 text-gray-400 dark:text-enterprise-muted cursor-not-allowed'
                         : pageNum === page
-                        ? 'bg-blue-600 dark:bg-blue-700 text-white shadow-lg ring-2 ring-blue-500 dark:ring-blue-600 ring-offset-2 dark:ring-offset-slate-900'
-                        : 'bg-white/90 dark:bg-slate-700/90 backdrop-blur-sm text-gray-600 dark:text-slate-300 border border-gray-200 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-600 hover:shadow-md'
+                        ? 'bg-blue-600 dark:bg-neon-cyan-glow text-white shadow-lg ring-2 ring-blue-500 dark:ring-neon-cyan-glow ring-offset-2 dark:ring-offset-midnight-950'
+                        : 'bg-white/90 dark:bg-midnight-700/90 backdrop-blur-sm text-gray-600 dark:text-enterprise-silver border border-gray-200 dark:border-midnight-600 hover:bg-white dark:hover:bg-midnight-600 hover:shadow-md'
                     }`}
                   >
                     {pageNum}
@@ -1806,7 +1800,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                 <button
                   onClick={() => handlePageChange(page + 1)}
                   disabled={page === totalPages}
-                  className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-600 dark:text-slate-300 bg-white/90 dark:bg-slate-700/90 backdrop-blur-sm border border-gray-200 dark:border-slate-600 rounded-lg shadow-sm hover:shadow-md hover:bg-white dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-600 dark:text-enterprise-silver bg-white/90 dark:bg-midnight-700/90 backdrop-blur-sm border border-gray-200 dark:border-midnight-600 rounded-lg shadow-sm hover:shadow-md hover:bg-white dark:hover:bg-midnight-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                   aria-label="Next page"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -1814,7 +1808,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                 <button
                   onClick={() => handlePageChange(totalPages)}
                   disabled={page === totalPages}
-                  className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-600 dark:text-slate-300 bg-white/90 dark:bg-slate-700/90 backdrop-blur-sm border border-gray-200 dark:border-slate-600 rounded-lg shadow-sm hover:shadow-md hover:bg-white dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-600 dark:text-enterprise-silver bg-white/90 dark:bg-midnight-700/90 backdrop-blur-sm border border-gray-200 dark:border-midnight-600 rounded-lg shadow-sm hover:shadow-md hover:bg-white dark:hover:bg-midnight-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                   aria-label="Last page"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -1823,7 +1817,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
               </div>
 
               {/* Results count */}
-              <div className="text-sm text-gray-600 dark:text-slate-400 text-center lg:text-right">
+              <div className="text-sm text-gray-600 dark:text-enterprise-muted text-center lg:text-right">
                 Showing {startIndex} to {endIndex} of {total} results
               </div>
             </div>
@@ -1859,7 +1853,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
             onMouseLeave={handleMouseUp}
           >
             <div 
-              className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-md w-full max-h-screen overflow-y-auto"
+              className="bg-white dark:bg-midnight-800 rounded-xl shadow-2xl max-w-md w-full max-h-screen overflow-y-auto"
               style={{
                 transform: `translate(${dragPosition.x}px, ${dragPosition.y}px)`,
                 transition: isDragging ? 'none' : 'transform 0.2s ease-out'
@@ -1870,10 +1864,10 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                   className="flex items-center justify-between mb-6 cursor-move"
                   onMouseDown={handleMouseDown}
                 >
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">Export Options</h2>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-enterprise-text">Export Options</h2>
                   <button
                     onClick={() => setShowExportModal(false)}
-                    className="text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 transition-colors cursor-pointer"
+                    className="text-gray-400 dark:text-enterprise-muted hover:text-gray-600 dark:hover:text-enterprise-silver transition-colors cursor-pointer"
                   >
                     <X className="h-5 w-5" />
                   </button>
@@ -1881,7 +1875,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
 
                 <div className="space-y-4">
                   {/* Export Option 1: Current View */}
-                  <div className="border border-gray-200 dark:border-slate-600 rounded-lg p-4">
+                  <div className="border border-gray-200 dark:border-midnight-600 rounded-lg p-4">
                     <label className="flex items-center space-x-3 cursor-pointer">
                       <input
                         type="radio"
@@ -1892,8 +1886,8 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                         className="text-blue-600 focus:ring-blue-500"
                       />
                       <div className="flex-1">
-                        <div className="font-medium text-gray-900 dark:text-slate-200">Current View</div>
-                        <div className="text-sm text-gray-500 dark:text-slate-400">
+                        <div className="font-medium text-gray-900 dark:text-enterprise-silver">Current View</div>
+                        <div className="text-sm text-gray-500 dark:text-enterprise-muted">
                           Export {transactions.length} records currently displayed
                         </div>
                       </div>
@@ -1910,23 +1904,23 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                         onChange={(e) => setExportOption(e.target.value as 'current' | 'date' | 'custom')}
                         className="w-4 h-4 text-emerald-600 border-gray-300 focus:ring-emerald-500"
                       />
-                      <span className="text-gray-700 dark:text-slate-300">Export by Date Range</span>
+                      <span className="text-gray-700 dark:text-enterprise-silver">Export by Date Range</span>
                     </label>
                     
                     {exportOption === 'date' && (
-                      <div className="ml-7 space-y-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                        <div className="text-sm text-blue-800 dark:text-blue-400 font-medium mb-3">
+                      <div className="ml-7 space-y-3 p-4 bg-blue-50 dark:bg-neon-cyan-glow/20 border border-blue-200 dark:border-neon-cyan-glow/30 rounded-lg">
+                        <div className="text-sm text-blue-800 dark:text-neon-cyan-glow font-medium mb-3">
                           Select date range to export all records within this period:
                         </div>
                         
                         {/* Date Range Inputs */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-enterprise-silver mb-2">
                               Start Date
                             </label>
                             <div className="relative">
-                              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500" />
+                              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-enterprise-muted" />
                               <DatePicker
                                 selected={startDate}
                                 onChange={(date: Date | null) => onDateRangeChange?.(date, endDate || null)}
@@ -1934,7 +1928,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                                 startDate={startDate}
                                 endDate={endDate}
                                 placeholderText="Select start date"
-                                className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white dark:bg-slate-700 dark:text-slate-200"
+                                className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-midnight-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white dark:bg-midnight-700 dark:text-enterprise-silver"
                                 isClearable
                                 showMonthDropdown
                                 showYearDropdown
@@ -1946,11 +1940,11 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                           </div>
                           
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-enterprise-silver mb-2">
                               End Date
                             </label>
                             <div className="relative">
-                              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500" />
+                              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-enterprise-muted" />
                               <DatePicker
                                 selected={endDate}
                                 onChange={(date: Date | null) => onDateRangeChange?.(startDate || null, date)}
@@ -1959,7 +1953,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                                 endDate={endDate}
                                 minDate={startDate || undefined}
                                 placeholderText="Select end date"
-                                className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white dark:bg-slate-700 dark:text-slate-200"
+                                className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-midnight-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white dark:bg-midnight-700 dark:text-enterprise-silver"
                                 isClearable
                                 showMonthDropdown
                                 showYearDropdown
@@ -1973,7 +1967,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                         
                         {/* Quick Date Range Selection */}
                         <div className="mt-4">
-                          <div className="text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">Quick Selection:</div>
+                          <div className="text-sm font-medium text-gray-700 dark:text-enterprise-silver mb-2">Quick Selection:</div>
                           <div className="flex flex-wrap gap-2">
                             <button
                               onClick={() => {
@@ -2114,7 +2108,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                   </div>
 
                   {/* Export Option 3: Custom Export */}
-                  <div className="border border-gray-200 dark:border-slate-600 rounded-lg p-4">
+                  <div className="border border-gray-200 dark:border-midnight-600 rounded-lg p-4">
                     <label className="flex items-center space-x-3 cursor-pointer">
                       <input
                         type="radio"
@@ -2125,8 +2119,8 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                         className="text-blue-600 focus:ring-blue-500"
                       />
                       <div className="flex-1">
-                        <div className="font-medium text-gray-900 dark:text-slate-200">Custom Export</div>
-                        <div className="text-sm text-gray-500 dark:text-slate-400">
+                        <div className="font-medium text-gray-900 dark:text-enterprise-silver">Custom Export</div>
+                        <div className="text-sm text-gray-500 dark:text-enterprise-muted">
                           Export specific number of records
                         </div>
                       </div>
@@ -2135,7 +2129,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                     {exportOption === 'custom' && (
                       <div className="mt-4 space-y-3">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-enterprise-silver mb-1">
                             Number of records
                           </label>
                           <input
@@ -2144,11 +2138,11 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                             max="10000"
                             value={customExportLimit}
                             onChange={(e) => setCustomExportLimit(Math.max(1, Math.min(10000, parseInt(e.target.value) || 100)))}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white dark:bg-slate-700 dark:text-slate-200"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-midnight-600 rounded-lg focus:ring-2 focus:ring-neon-cyan-glow focus:border-neon-cyan-glow text-sm bg-white dark:bg-midnight-700 dark:text-enterprise-silver"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-enterprise-silver mb-1">
                             Starting from record (offset)
                           </label>
                           <input
@@ -2156,10 +2150,10 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                             min="0"
                             value={customExportOffset}
                             onChange={(e) => setCustomExportOffset(Math.max(0, parseInt(e.target.value) || 0))}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white dark:bg-slate-700 dark:text-slate-200"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-midnight-600 rounded-lg focus:ring-2 focus:ring-neon-cyan-glow focus:border-neon-cyan-glow text-sm bg-white dark:bg-midnight-700 dark:text-enterprise-silver"
                           />
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-slate-400">
+                        <div className="text-xs text-gray-500 dark:text-enterprise-muted">
                           Will export records {customExportOffset} to {customExportOffset + customExportLimit - 1}
                         </div>
                       </div>
@@ -2168,11 +2162,11 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200 dark:border-slate-700">
+                <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200 dark:border-midnight-700">
                   <button
                     onClick={() => setShowExportModal(false)}
                     disabled={isExporting}
-                    className="px-4 py-2 text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 text-gray-700 dark:text-enterprise-silver bg-gray-100 dark:bg-midnight-700 hover:bg-gray-200 dark:hover:bg-midnight-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Cancel
                   </button>
@@ -2204,15 +2198,15 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
 
                 {/* Export Progress Display */}
                 {isExporting && (
-                  <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <div className="mt-4 p-4 bg-blue-50 dark:bg-neon-cyan-glow/20 border border-blue-200 dark:border-neon-cyan-glow/30 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
                       <div className="flex-1">
-                        <div className="text-sm font-medium text-blue-900 dark:text-blue-400">
+                        <div className="text-sm font-medium text-blue-900 dark:text-neon-cyan-glow">
                           {exportProgress}
                         </div>
                         {exportCountdown > 0 && (
-                          <div className="text-xs text-blue-700 dark:text-blue-500 mt-1">
+                          <div className="text-xs text-blue-700 dark:text-neon-cyan-glow mt-1">
                             Estimated time remaining: {exportCountdown}s
                           </div>
                         )}

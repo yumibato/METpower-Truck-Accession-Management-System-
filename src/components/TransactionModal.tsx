@@ -158,7 +158,7 @@ export default function TransactionModal({
 
   const inputClass = `w-full px-3 py-2 border rounded-lg text-sm ${
     mode === 'edit' 
-      ? 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent' 
+      ? 'border-gray-300 focus:ring-2 focus:ring-neon-cyan-glow focus:border-transparent' 
       : 'border-gray-200 bg-gray-50 cursor-not-allowed'
   } transition-colors`;
 
@@ -166,7 +166,7 @@ export default function TransactionModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-stretch justify-center z-50 p-4 lg:p-8">
       <div className="bg-white rounded-xl shadow-2xl w-full h-full max-w-none flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-teal-600 px-6 py-4 flex-shrink-0">
+        <div className="bg-gradient-to-r from-neon-cyan-glow to-teal-600 dark:shadow-neon-cyan px-6 py-4 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="h-8 w-8 bg-white/20 rounded-lg flex items-center justify-center">
@@ -278,7 +278,7 @@ export default function TransactionModal({
                 {/* Vehicle Information */}
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h3 className="flex items-center space-x-2 text-lg font-semibold text-gray-900 mb-4">
-                    <Truck className="h-5 w-5 text-blue-600" />
+                    <Truck className="h-5 w-5 text-neon-cyan-glow" />
                     <span>Vehicle Information</span>
                   </h3>
                   
@@ -328,7 +328,7 @@ export default function TransactionModal({
                 {/* Personnel Information */}
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h3 className="flex items-center space-x-2 text-lg font-semibold text-gray-900 mb-4">
-                    <User className="h-5 w-5 text-blue-600" />
+                    <User className="h-5 w-5 text-neon-cyan-glow" />
                     <span>Personnel</span>
                   </h3>
                   
@@ -376,7 +376,7 @@ export default function TransactionModal({
                 {/* Product Information */}
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h3 className="flex items-center space-x-2 text-lg font-semibold text-gray-900 mb-4">
-                    <Package className="h-5 w-5 text-blue-600" />
+                    <Package className="h-5 w-5 text-neon-cyan-glow" />
                     <span>Product Details</span>
                   </h3>
                   
@@ -448,7 +448,7 @@ export default function TransactionModal({
                 {/* Company Information */}
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h3 className="flex items-center space-x-2 text-lg font-semibold text-gray-900 mb-4">
-                    <Building2 className="h-5 w-5 text-blue-600" />
+                    <Building2 className="h-5 w-5 text-neon-cyan-glow" />
                     <span>Company Details</span>
                   </h3>
                   
@@ -499,7 +499,7 @@ export default function TransactionModal({
                 {/* Weight Information */}
                 <div className="bg-gradient-to-br from-blue-50 to-teal-50 p-6 rounded-lg border border-blue-200">
                   <h3 className="flex items-center space-x-2 text-lg font-semibold text-gray-900 mb-6">
-                    <Scale className="h-5 w-5 text-blue-600" />
+                    <Scale className="h-5 w-5 text-neon-cyan-glow" />
                     <span>Weight Measurements</span>
                   </h3>
                   
@@ -520,7 +520,7 @@ export default function TransactionModal({
                             name="gross_weight"
                             value={formData.gross_weight || 0}
                             onChange={handleChange}
-                            className="w-full px-4 py-3 text-2xl font-bold text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-4 py-3 text-2xl font-bold text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-neon-cyan-glow focus:border-transparent"
                           />
                         )}
                       </div>
@@ -539,7 +539,7 @@ export default function TransactionModal({
                             name="tare_weight"
                             value={formData.tare_weight || 0}
                             onChange={handleChange}
-                            className="w-full px-4 py-3 text-2xl font-bold text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-4 py-3 text-2xl font-bold text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-neon-cyan-glow focus:border-transparent"
                           />
                         )}
                       </div>
@@ -600,7 +600,7 @@ export default function TransactionModal({
                 {/* DateTime Information */}
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h3 className="flex items-center space-x-2 text-lg font-semibold text-gray-900 mb-4">
-                    <Calendar className="h-5 w-5 text-blue-600" />
+                    <Calendar className="h-5 w-5 text-neon-cyan-glow" />
                     <span>Date & Time</span>
                   </h3>
                   
@@ -794,7 +794,7 @@ export default function TransactionModal({
                 {onEdit && (
                   <button
                     onClick={onEdit}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="px-4 py-2 bg-neon-cyan-glow text-white rounded-lg hover:bg-neon-cyan-bright dark:shadow-neon-cyan transition-colors"
                   >
                     Edit Transaction
                   </button>
@@ -821,7 +821,7 @@ export default function TransactionModal({
               <button
                 onClick={handleSave}
                 disabled={loading}
-                className="flex items-center space-x-2 px-6 py-2 bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                className="flex items-center space-x-2 px-6 py-2 bg-gradient-to-r from-neon-cyan-glow to-teal-600 hover:from-neon-cyan-bright hover:to-teal-700 dark:shadow-neon-cyan text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
               >
                 {loading ? (
                   <>

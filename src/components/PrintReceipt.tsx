@@ -71,7 +71,7 @@ export default function PrintReceipt({ transaction, onClose }: PrintReceiptProps
         <div className="bg-gray-50 border-b border-gray-200 p-4 flex gap-3 print:hidden">
           <button
             onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            className="flex items-center gap-2 px-4 py-2 bg-neon-cyan-glow text-white rounded-lg hover:bg-neon-cyan-bright dark:shadow-neon-cyan transition"
           >
             <Printer className="h-4 w-4" />
             Print
@@ -201,7 +201,7 @@ export default function PrintReceipt({ transaction, onClose }: PrintReceiptProps
               </div>
               <div className="text-center">
                 <p className="text-xs text-gray-500 uppercase mb-1 print:text-[10px] print:mb-0">Net Weight</p>
-                <p className="text-xl font-bold text-blue-600 print:text-sm">{transaction.net_weight ?? 'N/A'}</p>
+                <p className="text-xl font-bold text-neon-cyan-glow print:text-sm">{transaction.net_weight ?? 'N/A'}</p>
                 <p className="text-xs text-gray-500 print:text-[10px]">kg</p>
               </div>
               <div className="text-center">

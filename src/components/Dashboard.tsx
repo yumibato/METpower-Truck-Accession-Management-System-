@@ -5,22 +5,27 @@ import AuditLog from './AuditLog';
 import Header from './Header';
 import { Transaction } from '../types/Transaction';
 import { transacApi } from '../services/transacApi';
+import { usePersistentState } from '../hooks/usePersistentState';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  
+  // ✅ PERSISTENT STATE - Filters survive page refresh
+  const [page, setPage] = usePersistentState('dashboard-page', 1);
+  const [pageSize, setPageSize] = usePersistentState('dashboard-pageSize', 10);
+  const [search, setSearch] = usePersistentState('dashboard-search', '');
+  const [sortBy, setSortBy] = usePersistentState('dashboard-sortBy', 'id');
+  const [sortDir, setSortDir] = usePersistentState<'ASC' | 'DESC'>('dashboard-sortDir', 'DESC');
+  const [activeTab, setActiveTab] = usePersistentState<'transactions' | 'auditlog'>('dashboard-activeTab', 'transactions');
+  
+  // Regular state (no persistence needed)
   const [total, setTotal] = useState(0);
-  const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState('id');
-  const [sortDir, setSortDir] = useState<'ASC' | 'DESC'>('DESC');
   const [refreshing, setRefreshing] = useState(false);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
-  const [activeTab, setActiveTab] = useState<'transactions' | 'auditlog'>('transactions');
   
   // Prevent unnecessary re-fetches
   const isFirstLoad = useRef(true);
@@ -179,17 +184,17 @@ export default function Dashboard() {
 
   if (loading && transactions.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-midnight-950 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-slate-400">Loading dashboard...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-neon-cyan-glow mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-enterprise-muted">Loading dashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-midnight-950">
       <Header />
       
       <main className="w-full py-6 px-4 sm:px-6 lg:px-8">
@@ -201,15 +206,15 @@ export default function Dashboard() {
 
         {/* Navigation Tabs */}
         <div className="mb-6">
-          <div className="border-b border-gray-200 dark:border-slate-700">
+          <div className="border-b border-gray-200 dark:border-midnight-700">
             <div className="flex justify-between items-center">
               <nav className="-mb-px flex space-x-8">
                 <button
                   onClick={() => setActiveTab('transactions')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
                     activeTab === 'transactions'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? 'border-neon-cyan-glow text-blue-600 dark:text-neon-cyan-glow'
+                      : 'border-transparent text-gray-500 dark:text-enterprise-muted hover:text-gray-700 dark:hover:text-enterprise-silver hover:border-gray-300 dark:hover:border-midnight-600'
                   }`}
                 >
                   Transactions
@@ -218,8 +223,8 @@ export default function Dashboard() {
                   onClick={() => setActiveTab('auditlog')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
                     activeTab === 'auditlog'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? 'border-neon-cyan-glow text-blue-600 dark:text-neon-cyan-glow'
+                      : 'border-transparent text-gray-500 dark:text-enterprise-muted hover:text-gray-700 dark:hover:text-enterprise-silver hover:border-gray-300 dark:hover:border-midnight-600'
                   }`}
                 >
                   Activity Log
@@ -228,11 +233,11 @@ export default function Dashboard() {
               
               {/* Live indicator for transactions */}
               {activeTab === 'transactions' && (
-                <div className="flex items-center space-x-2 text-sm text-green-600 py-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <div className="flex items-center space-x-2 text-sm text-green-600 dark:text-green-400 py-2">
+                  <div className="w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full animate-pulse"></div>
                   <span>Auto-Sync</span>
                   {loading && (
-                    <div className="w-3 h-3 border border-green-500 border-t-transparent rounded-full animate-spin ml-1"></div>
+                    <div className="w-3 h-3 border border-green-500 dark:border-green-400 border-t-transparent rounded-full animate-spin ml-1"></div>
                   )}
                 </div>
               )}

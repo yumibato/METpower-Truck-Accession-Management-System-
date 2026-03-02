@@ -54,7 +54,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center px-4 sm:px-6 lg:px-8 transition-colors duration-200">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 dark:from-midnight-950 dark:via-midnight-900 dark:to-midnight-950 flex items-center justify-center px-4 sm:px-6 lg:px-8 transition-colors duration-200">
       {/* Theme Toggle in top right corner */}
       <div className="absolute top-4 right-4">
         <ThemeToggle />
@@ -80,13 +80,13 @@ export default function Login() {
           <h2 className="mt-6 text-2xl font-bold text-gray-900 dark:text-white transition-colors duration-200">
             Truck Accession System
           </h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-slate-300 transition-colors duration-200">
+          <p className="mt-2 text-sm text-gray-600 dark:text-enterprise-silver transition-colors duration-200">
             Administrator Login
           </p>
         </div>
 
         {/* Login Form */}
-        <div className="bg-white dark:bg-slate-800 py-8 px-6 shadow-xl rounded-xl border border-gray-100 dark:border-slate-700 transition-colors duration-200">
+        <div className="bg-white dark:bg-midnight-800 py-8 px-6 shadow-xl rounded-xl border border-gray-100 dark:border-midnight-700 transition-colors duration-200">
           <form className="space-y-6" onSubmit={handleSubmit}>
             {error && (
               <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center space-x-3">
@@ -96,7 +96,7 @@ export default function Login() {
             )}
 
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2 transition-colors duration-200">
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-enterprise-silver mb-2 transition-colors duration-200">
                 Username
               </label>
               <div className="relative">
@@ -110,14 +110,14 @@ export default function Login() {
                   required
                   value={formData.username}
                   onChange={handleChange}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
+                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-midnight-600 bg-white dark:bg-midnight-700 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-neon-cyan-glow focus:border-transparent transition-colors duration-200"
                   placeholder="Enter your username"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2 transition-colors duration-200">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-enterprise-silver mb-2 transition-colors duration-200">
                 Password
               </label>
               <div className="relative">
@@ -131,7 +131,7 @@ export default function Login() {
                   required
                   value={formData.password}
                   onChange={handleChange}
-                  className="block w-full pl-10 pr-10 py-3 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
+                  className="block w-full pl-10 pr-10 py-3 border border-gray-300 dark:border-midnight-600 bg-white dark:bg-midnight-700 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-neon-cyan-glow focus:border-transparent transition-colors duration-200"
                   placeholder="Enter your password"
                 />
                 <button
@@ -151,7 +151,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-neon-cyan-glow hover:bg-neon-cyan-bright focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neon-cyan-glow disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl dark:shadow-neon-cyan"
             >
               {loading ? (
                 <div className="flex items-center space-x-2">
@@ -167,7 +167,7 @@ export default function Login() {
 
         {/* Footer */}
         <div className="text-center">
-          <p className="text-xs text-gray-500 dark:text-slate-400 transition-colors duration-200">
+          <p className="text-xs text-gray-500 dark:text-enterprise-muted transition-colors duration-200">
             2025 METpower. All rights reserved.
           </p>
         </div>

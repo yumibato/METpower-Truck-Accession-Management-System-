@@ -12,8 +12,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900">
-        <div className="text-center text-gray-600 dark:text-slate-400">Checking session...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-midnight-950">
+        <div className="text-center text-gray-600 dark:text-enterprise-muted">Checking session...</div>
       </div>
     );
   }
@@ -24,9 +24,9 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <NotificationProvider>
-          <Router>
-            <div className="min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors duration-200">
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <NotificationProvider>
+            <div className="min-h-screen bg-gray-50 dark:bg-midnight-950 transition-colors duration-200">
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route 
@@ -49,8 +49,8 @@ function App() {
               </Routes>
               <PWAInstallPrompt />
             </div>
-          </Router>
-        </NotificationProvider>
+          </NotificationProvider>
+        </Router>
       </AuthProvider>
     </ThemeProvider>
   );

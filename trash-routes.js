@@ -2,6 +2,7 @@
 // Import this module and call setupTrashRoutes(app, pool) after sql.connect
 
 import { logAuditEntry, logBulkAuditEntries, extractUsername, extractUserId } from './audit-utils.js';
+import { notifyActivity } from './socket-io-server.js';
 
 export function setupTrashRoutes(app, pool, sql) {
   // ===== BULK OPERATIONS (MUST BE FIRST - before parameterized routes) =====
@@ -38,6 +39,13 @@ export function setupTrashRoutes(app, pool, sql) {
       const userId = extractUserId(req);
       const affectedIds = ids.slice(0, affectedRows); // Only log for actually affected rows
       await logBulkAuditEntries(pool, sql, affectedIds, 'BULK_DELETE', username, userId, `Bulk moved to trash (${affectedRows} items)`);
+
+      // Broadcast real-time notification for bulk operation
+      try {
+        await notifyActivity('BULK_DELETE', { id: affectedRows, trans_no: `${affectedRows} transactions` }, username, pool);
+      } catch (notifyError) {
+        console.error('Failed to send real-time notification:', notifyError);
+      }
 
       res.json({
         success: true,
@@ -80,6 +88,13 @@ export function setupTrashRoutes(app, pool, sql) {
       const userId = extractUserId(req);
       const affectedIds = ids.slice(0, affectedRows); // Only log for actually affected rows
       await logBulkAuditEntries(pool, sql, affectedIds, 'BULK_RESTORE', username, userId, `Bulk restored from trash (${affectedRows} items)`);
+
+      // Broadcast real-time notification for bulk operation
+      try {
+        await notifyActivity('BULK_RESTORE', { id: affectedRows, trans_no: `${affectedRows} transactions` }, username, pool);
+      } catch (notifyError) {
+        console.error('Failed to send real-time notification:', notifyError);
+      }
 
       res.json({
         success: true,
@@ -126,6 +141,13 @@ export function setupTrashRoutes(app, pool, sql) {
       const userId = extractUserId(req);
       const affectedIds = ids.slice(0, affectedRows); // Only log for actually affected rows
       await logBulkAuditEntries(pool, sql, affectedIds, 'BULK_STATUS_UPDATE', username, userId, `Bulk status update to "${status}" (${affectedRows} items)`);
+
+      // Broadcast real-time notification for bulk operation
+      try {
+        await notifyActivity('BULK_STATUS_UPDATE', { id: affectedRows, trans_no: `${affectedRows} transactions → ${status}` }, username, pool);
+      } catch (notifyError) {
+        console.error('Failed to send real-time notification:', notifyError);
+      }
 
       res.json({
         success: true,
@@ -241,6 +263,15 @@ export function setupTrashRoutes(app, pool, sql) {
       const userId = extractUserId(req);
       await logAuditEntry(pool, sql, id, 'DELETE', username, userId, 'Transaction moved to trash');
 
+      // Broadcast real-time notification
+      if (transaction) {
+        try {
+          await notifyActivity('DELETE', transaction, username, pool);
+        } catch (notifyError) {
+          console.error('Failed to send real-time notification:', notifyError);
+        }
+      }
+
       console.log(`[TRASH] Successfully moved transaction ${id} to trash`);
       res.json({
         success: true,
@@ -294,6 +325,15 @@ export function setupTrashRoutes(app, pool, sql) {
       const username = extractUsername(req);
       const userId = extractUserId(req);
       await logAuditEntry(pool, sql, id, 'RESTORE', username, userId, 'Transaction restored from trash');
+
+      // Broadcast real-time notification
+      if (transaction) {
+        try {
+          await notifyActivity('RESTORE', transaction, username, pool);
+        } catch (notifyError) {
+          console.error('Failed to send real-time notification:', notifyError);
+        }
+      }
 
       console.log(`[RESTORE] Successfully restored transaction ${id}`);
       res.json({

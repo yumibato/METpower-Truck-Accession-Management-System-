@@ -15,19 +15,27 @@ interface ThemeProviderProps {
 }
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-  const [theme, setTheme] = useState<Theme>('light');
-
-  useEffect(() => {
-    // Check local storage for saved theme preference
-    const savedTheme = localStorage.getItem('theme') as Theme;
-    if (savedTheme && (savedTheme === 'light' || savedTheme === 'dark')) {
-      setTheme(savedTheme);
-    } else {
+  // ✅ FIX: Initialize theme from localStorage IMMEDIATELY (not in useEffect)
+  // This prevents the flash of light mode on page load
+  const [theme, setTheme] = useState<Theme>(() => {
+    try {
+      // Check if we're in a browser environment
+      if (typeof window === 'undefined') return 'light';
+      
+      // Check local storage for saved theme preference
+      const savedTheme = localStorage.getItem('theme') as Theme;
+      if (savedTheme && (savedTheme === 'light' || savedTheme === 'dark')) {
+        return savedTheme;
+      }
+      
       // Check system preference if no saved theme
       const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      setTheme(systemTheme);
+      return systemTheme;
+    } catch (error) {
+      console.warn('Error reading theme from localStorage:', error);
+      return 'light';
     }
-  }, []);
+  });
 
   useEffect(() => {
     // Apply theme to document
@@ -39,7 +47,11 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     }
     
     // Save to local storage
-    localStorage.setItem('theme', theme);
+    try {
+      localStorage.setItem('theme', theme);
+    } catch (error) {
+      console.warn('Error saving theme to localStorage:', error);
+    }
   }, [theme]);
 
   const toggleTheme = () => {

@@ -7,11 +7,30 @@
     <title>METPower - Truck Accession System</title>
     <meta name="description" content="Professional truck accession ticket management system for METpower operations">
     
+    <!-- 🌙 DARK MODE FIX: Apply theme IMMEDIATELY to prevent flash -->
+    <script>
+      // This runs BEFORE React loads, preventing light mode flash
+      (function() {
+        try {
+          const savedTheme = localStorage.getItem('theme');
+          const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          const theme = savedTheme || systemTheme;
+          
+          if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+          }
+        } catch (e) {
+          // Fail silently if localStorage is not available
+        }
+      })();
+    </script>
+    
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json">
     
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#2563eb">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="METpower TAS">
@@ -27,12 +46,11 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16x16.png">
     
     <!-- Microsoft Tiles -->
-    <meta name="msapplication-square70x70logo" content="/icons/icon-72x72.png">
-    <meta name="msapplication-square150x150logo" content="/icons/icon-144x144.png">
-    <meta name="msapplication-square310x310logo" content="/icons/icon-384x384.png">
+    <!-- Commenting out Windows tiles that may not have corresponding icons -->
+    <!-- <meta name="msapplication-square70x70logo" content="/icons/icon-72x72.png"> -->
+    <!-- <meta name="msapplication-square150x150logo" content="/icons/icon-144x144.png"> -->
+    <!-- <meta name="msapplication-square310x310logo" content="/icons/icon-384x384.png"> -->
     
-    <!-- Preload critical resources -->
-    <link rel="preload" href="/src/main.tsx" as="script" crossorigin>
   </head>
   <body>
     <div id="root"></div>
@@ -111,6 +129,46 @@
           window.syncTransactions = () => {
             return registration.sync.register('transaction-sync');
           };
+        });
+      }
+      
+      // ===== CACHE CLEARING UTILITY =====
+      // In development, clear cache and reload with: window.clearCacheAndReload()
+      window.clearCacheAndReload = async () => {
+        try {
+          // Unregister all service workers
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (let registration of registrations) {
+            await registration.unregister();
+            console.log('Service worker unregistered');
+          }
+          
+          // Clear all caches
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map(name => caches.delete(name)));
+          console.log('All caches cleared:', cacheNames);
+          
+          // Clear session/local storage (optional)
+          // sessionStorage.clear();
+          // localStorage.clear();
+          
+          // Hard reload
+          window.location.reload(true);
+        } catch (error) {
+          console.error('Failed to clear cache:', error);
+        }
+      };
+      
+      // Auto-clear cache in development on Ctrl+Shift+R
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        console.log('🔧 Development Mode: Use window.clearCacheAndReload() to clear cache, or press Ctrl+Shift+R');
+        
+        document.addEventListener('keydown', (e) => {
+          if (e.ctrlKey && e.shiftKey && e.key === 'R') {
+            e.preventDefault();
+            console.log('Clearing cache and reloading...');
+            window.clearCacheAndReload();
+          }
         });
       }
     </script>

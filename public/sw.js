@@ -1,6 +1,9 @@
-const CACHE_NAME = 'metpower-tas-v1.0.1';
-const STATIC_CACHE_NAME = 'metpower-tas-static-v1.0.1';
-const DYNAMIC_CACHE_NAME = 'metpower-tas-dynamic-v1.0.1';
+const CACHE_NAME = 'metpower-tas-v1.1.0';
+const STATIC_CACHE_NAME = 'metpower-tas-static-v1.1.0';
+const DYNAMIC_CACHE_NAME = 'metpower-tas-dynamic-v1.1.0';
+
+// Detect development environment
+const IS_DEVELOPMENT = self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1';
 
 // Resources to cache immediately upon install
 const STATIC_ASSETS = [
@@ -33,17 +36,23 @@ self.addEventListener('install', (event) => {
   console.log('[SW] Installing service worker...');
   
   event.waitUntil(
-    caches.open(STATIC_CACHE_NAME)
-      .then((cache) => {
-        console.log('[SW] Caching static assets');
-        return cache.addAll(STATIC_ASSETS);
-      })
-      .then(() => {
+    (async () => {
+      // In development, clear ALL caches on install
+      if (IS_DEVELOPMENT) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+        console.log('[SW] Development mode: Cleared all caches');
         return self.skipWaiting();
-      })
-      .catch((error) => {
-        console.error('[SW] Failed to cache static assets:', error);
-      })
+      }
+      
+      // In production, cache static assets
+      const cache = await caches.open(STATIC_CACHE_NAME);
+      console.log('[SW] Caching static assets');
+      await cache.addAll(STATIC_ASSETS);
+      return self.skipWaiting();
+    })().catch((error) => {
+      console.error('[SW] Failed during install:', error);
+    })
   );
 });
 
@@ -54,9 +63,12 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
       .then((cacheNames) => {
+        // Delete ALL old caches that don't match current version
         return Promise.all(
           cacheNames.map((cacheName) => {
-            if (cacheName !== STATIC_CACHE_NAME && cacheName !== DYNAMIC_CACHE_NAME) {
+            if (cacheName !== STATIC_CACHE_NAME && 
+                cacheName !== DYNAMIC_CACHE_NAME && 
+                cacheName !== CACHE_NAME) {
               console.log('[SW] Deleting old cache:', cacheName);
               return caches.delete(cacheName);
             }
@@ -64,6 +76,7 @@ self.addEventListener('activate', (event) => {
         );
       })
       .then(() => {
+        console.log('[SW] Service worker activated and old caches cleared');
         return self.clients.claim();
       })
   );
@@ -73,6 +86,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+  
+  // Skip caching entirely in development mode
+  if (IS_DEVELOPMENT) {
+    return; // Let all requests go directly to network in development
+  }
   
   // Skip non-GET requests
   if (request.method !== 'GET') {

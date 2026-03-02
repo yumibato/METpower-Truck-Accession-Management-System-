@@ -1,0 +1,184 @@
+// ========================================
+// 🔄 PERSISTENT STATE - QUICK REFERENCE
+// ========================================
+
+// --------------------------------------------
+// 1. Basic Usage: usePersistentState
+// --------------------------------------------
+import { usePersistentState } from '../hooks/usePersistentState';
+
+function Component() {
+  // Syntax: (key, defaultValue)
+  const [value, setValue] = usePersistentState('my-key', 'default');
+  
+  // Works exactly like useState, but persists across refreshes! ✅
+}
+
+// --------------------------------------------
+// 2. Session Storage (Cleared on tab close)
+// --------------------------------------------
+import { useSessionState } from '../hooks/usePersistentState';
+
+function FormDraft() {
+  const [draft, setDraft] = useSessionState('form-draft', {});
+  // Persists through refresh, but cleared when tab closes
+}
+
+// --------------------------------------------
+// 3. URL Parameters (Shareable links)
+// --------------------------------------------
+import { useURLState } from '../hooks/usePersistentState';
+
+function SearchPage() {
+  const [query, setQuery] = useURLState('search', '');
+  // URL: ?search=value
+  // Users can bookmark and share this URL!
+}
+
+// --------------------------------------------
+// 4. Direct Storage Operations
+// --------------------------------------------
+import { 
+  getStorageItem, 
+  setStorageItem, 
+  removeStorageItem,
+  clearStorageByPrefix
+} from '../utils/storage';
+
+// Get with default fallback
+const data = getStorageItem('key', { default: 'value' });
+
+// Set with automatic error handling
+setStorageItem('key', { some: 'data' });
+
+// Remove specific key
+removeStorageItem('key');
+
+// Clear all keys with prefix
+clearStorageByPrefix('dashboard-');
+
+// --------------------------------------------
+// 5. Type-Safe Examples
+// --------------------------------------------
+
+// String
+const [name, setName] = usePersistentState('name', '');
+
+// Number
+const [count, setCount] = usePersistentState('count', 0);
+
+// Object
+const [user, setUser] = usePersistentState('user', { 
+  name: '', 
+  age: 0 
+});
+
+// Union Type
+const [theme, setTheme] = usePersistentState<'light' | 'dark'>('theme', 'light');
+
+// Array
+const [items, setItems] = usePersistentState<string[]>('items', []);
+
+// Complex Type
+interface Filter {
+  page: number;
+  search: string;
+  sortBy: 'id' | 'name';
+}
+const [filter, setFilter] = usePersistentState<Filter>('filter', {
+  page: 1,
+  search: '',
+  sortBy: 'id'
+});
+
+// --------------------------------------------
+// 6. Real-World Pattern: Table Filters
+// --------------------------------------------
+function DataTable() {
+  // All these persist automatically! ✅
+  const [page, setPage] = usePersistentState('table-page', 1);
+  const [pageSize, setPageSize] = usePersistentState('table-size', 10);
+  const [search, setSearch] = usePersistentState('table-search', '');
+  const [sortBy, setSortBy] = usePersistentState('table-sort', 'id');
+  
+  // User refreshes page → filters are preserved! 🎉
+}
+
+// --------------------------------------------
+// 7. When NOT to Use Persistent State
+// --------------------------------------------
+
+// ❌ DON'T: Sensitive data (use cookies with httpOnly flag)
+const [password, setPassword] = usePersistentState('password', '');
+
+// ❌ DON'T: Large datasets (use server-side caching)
+const [allTransactions, setAll] = usePersistentState('all-data', []);
+
+// ❌ DON'T: Frequently changing data (causes too many writes)
+const [mouseX, setMouseX] = usePersistentState('mouse-x', 0);
+
+// ✅ DO: User preferences, filters, UI state
+const [theme, setTheme] = usePersistentState('theme', 'dark');
+const [pageSize, setPageSize] = usePersistentState('page-size', 25);
+
+// --------------------------------------------
+// 8. Debugging Commands (Browser Console)
+// --------------------------------------------
+
+// View all localStorage
+console.table(localStorage);
+
+// Get specific value
+console.log(localStorage.getItem('dashboard-page'));
+
+// Clear specific key
+localStorage.removeItem('dashboard-page');
+
+// Clear all
+localStorage.clear();
+
+// Check storage size
+Object.keys(localStorage).reduce((total, key) => {
+  return total + localStorage[key].length + key.length;
+}, 0) / 1024 + 'KB';
+
+// --------------------------------------------
+// 9. Migration Example: useState → usePersistentState
+// --------------------------------------------
+
+// BEFORE ❌
+import { useState } from 'react';
+
+function OldComponent() {
+  const [page, setPage] = useState(1);
+  // State resets on refresh
+}
+
+// AFTER ✅
+import { usePersistentState } from '../hooks/usePersistentState';
+
+function NewComponent() {
+  const [page, setPage] = usePersistentState('component-page', 1);
+  // State persists on refresh! 🎉
+}
+
+// --------------------------------------------
+// 10. Advanced: Conditional Persistence
+// --------------------------------------------
+function SmartComponent() {
+  const shouldPersist = true; // Your condition
+  
+  const [value, setValue] = shouldPersist
+    ? usePersistentState('key', 'default')
+    : useState('default');
+  
+  // Dynamically choose persistence strategy
+}
+
+// ========================================
+// ✅ IMPLEMENTED IN PROJECT
+// ========================================
+// - ThemeContext: Dark/light mode
+// - AuthContext: User session (cookies)
+// - Dashboard: Filters, pagination, tabs
+// ========================================
