@@ -4,6 +4,7 @@ import cors from 'cors';
 import sql from 'mssql';
 import bcrypt from 'bcrypt';
 import { setupTrashRoutes } from './trash-routes.js';
+import { logAuditEntry, extractUsername, extractUserId } from './audit-utils.js';
 
 dotenv.config();
 
@@ -753,7 +754,16 @@ sql.connect(config)
           applyInputs(request, entries);
           const result = await request.query(insertSql);
           await transaction.commit();
-          res.status(201).json(result.recordset[0]);
+          
+          // Log audit entry for transaction creation
+          const createdTransaction = result.recordset[0];
+          if (createdTransaction && createdTransaction.id) {
+            const username = extractUsername(req);
+            const userId = extractUserId(req);
+            await logAuditEntry(pool, sql, createdTransaction.id, 'CREATE', username, userId, 'Transaction created');
+          }
+          
+          res.status(201).json(createdTransaction);
         } catch (errInner) {
           await transaction.rollback().catch(() => {});
           console.error('Failed to insert transac record:', errInner);
@@ -796,7 +806,15 @@ sql.connect(config)
           if (!result.recordset || !result.recordset.length) {
             return res.status(404).json({ error: 'Not found' });
           }
-          res.json(result.recordset[0]);
+          
+          // Log audit entry for transaction update
+          const updatedTransaction = result.recordset[0];
+          const username = extractUsername(req);
+          const userId = extractUserId(req);
+          const changedFields = entries.map(e => e.column).join(', ');
+          await logAuditEntry(pool, sql, id, 'UPDATE', username, userId, `Updated fields: ${changedFields}`);
+          
+          res.json(updatedTransaction);
         } catch (errInner) {
           await transaction.rollback().catch(() => {});
           console.error('Failed to update transac record:', errInner);
@@ -805,6 +823,97 @@ sql.connect(config)
       } catch (err) {
         console.error('PUT /api/transac/:id error:', err);
         res.status(500).json({ error: 'Server error' });
+      }
+    });
+
+    // Get audit log entries for a transaction
+    app.get('/api/transac/:id/audit', async (req, res) => {
+      const id = parseId(req.params.id);
+      if (!id) {
+        return res.status(400).json({ error: 'Invalid transaction id' });
+      }
+      try {
+        const page = Math.max(1, parseInt(req.query.page || '1', 10));
+        const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize || '20', 10)));
+        const offset = (page - 1) * pageSize;
+
+        const request = pool.request();
+        request.input('transaction_id', sql.Int, id);
+        request.input('offset', sql.Int, offset);
+        request.input('pageSize', sql.Int, pageSize);
+
+        // Get total count
+        const countResult = await request.query(`
+          SELECT COUNT(*) as total FROM [FTSS].[dbo].[audit_log] 
+          WHERE transaction_id = @transaction_id
+        `);
+        const total = countResult.recordset[0].total;
+
+        // Get paginated audit data
+        const auditResult = await request.query(`
+          SELECT id, transaction_id, user_id, username, action, details, created_at
+          FROM [FTSS].[dbo].[audit_log]
+          WHERE transaction_id = @transaction_id
+          ORDER BY created_at DESC
+          OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
+        `);
+
+        res.json({
+          rows: auditResult.recordset || [],
+          page,
+          pageSize,
+          total
+        });
+      } catch (err) {
+        console.error('GET /api/transac/:id/audit error:', err);
+        res.status(500).json({ error: 'Failed to fetch audit log', details: err.message });
+      }
+    });
+
+    // Get recent audit activity (general audit log)
+    app.get('/api/audit', async (req, res) => {
+      try {
+        const page = Math.max(1, parseInt(req.query.page || '1', 10));
+        const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize || '20', 10)));
+        const offset = (page - 1) * pageSize;
+
+        const request = pool.request();
+        request.input('offset', sql.Int, offset);
+        request.input('pageSize', sql.Int, pageSize);
+
+        // Get total count
+        const countResult = await request.query(`
+          SELECT COUNT(*) as total FROM [FTSS].[dbo].[audit_log]
+        `);
+        const total = countResult.recordset[0].total;
+
+        // Get paginated audit data with basic transaction info
+        const auditResult = await request.query(`
+          SELECT 
+            a.id, 
+            a.transaction_id, 
+            a.user_id, 
+            a.username, 
+            a.action, 
+            a.details, 
+            a.created_at,
+            t.trans_no,
+            t.driver
+          FROM [FTSS].[dbo].[audit_log] a
+          LEFT JOIN [FTSS].[dbo].[transac] t ON a.transaction_id = t.id
+          ORDER BY a.created_at DESC
+          OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
+        `);
+
+        res.json({
+          rows: auditResult.recordset || [],
+          page,
+          pageSize,
+          total
+        });
+      } catch (err) {
+        console.error('GET /api/audit error:', err);
+        res.status(500).json({ error: 'Failed to fetch audit log', details: err.message });
       }
     });
 

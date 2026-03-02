@@ -233,6 +233,52 @@ export const getCalendarData = async (year: number, month: number): Promise<Cale
   return await response.json() as CalendarData;
 };
 
+// Audit Log Types
+export interface AuditLogEntry {
+  id: number;
+  transaction_id: number;
+  user_id?: number;
+  username: string;
+  action: string;
+  details?: string;
+  created_at: string;
+  trans_no?: string;
+  driver?: string;
+}
+
+export interface AuditLogResult {
+  rows: AuditLogEntry[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+// Get audit log for a specific transaction
+const getTransactionAudit = async (transactionId: number, page: number = 1, pageSize: number = 20): Promise<AuditLogResult> => {
+  const url = withBase(`/api/transac/${transactionId}/audit?page=${page}&pageSize=${pageSize}`);
+  const response = await fetch(url);
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+  }
+  
+  return await response.json() as AuditLogResult;
+};
+
+// Get general audit log
+const getAuditLog = async (page: number = 1, pageSize: number = 20): Promise<AuditLogResult> => {
+  const url = withBase(`/api/audit?page=${page}&pageSize=${pageSize}`);
+  const response = await fetch(url);
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+  }
+  
+  return await response.json() as AuditLogResult;
+};
+
 export const transacApi = {
   list,
   get,
@@ -245,6 +291,8 @@ export const transacApi = {
   bulkDelete,
   bulkRestore,
   bulkUpdateStatus,
-  bulkExportCsv
+  bulkExportCsv,
+  getTransactionAudit,
+  getAuditLog
 };
 

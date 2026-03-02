@@ -159,44 +159,44 @@ export default function TrashBin() {
   const totalPages = Math.ceil(total / pageSize);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
       <Header />
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <div className="bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
-              <Trash2 className="h-8 w-8 text-red-500" />
-              <h1 className="text-2xl font-bold text-gray-900">Trash</h1>
+              <Trash2 className="h-8 w-8 text-red-500 dark:text-red-400" />
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">Trash</h1>
             </div>
-            <span className="text-sm text-gray-600">{total} items</span>
+            <span className="text-sm text-gray-600 dark:text-slate-400">{total} items</span>
           </div>
 
           {/* Search Bar */}
           <div className="relative">
-            <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+            <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400 dark:text-slate-500" />
             <input
               type="text"
               placeholder="Search trash..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 dark:text-slate-200 dark:placeholder-slate-400"
             />
           </div>
         </div>
 
         {/* Toolbar */}
         {selectedIds.size > 0 && (
-          <div className="bg-blue-50 border-t border-gray-200 px-4 sm:px-6 lg:px-8 py-3">
+          <div className="bg-blue-50 dark:bg-blue-900/20 border-t border-gray-200 dark:border-slate-700 px-4 sm:px-6 lg:px-8 py-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium text-gray-700 dark:text-slate-300">
                 {selectedIds.size} selected
               </span>
               <div className="flex items-center space-x-2">
                 <button
                   onClick={handleRestoreAll}
                   disabled={permanentLoading}
-                  className="inline-flex items-center space-x-2 px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+                  className="inline-flex items-center space-x-2 px-3 py-2 rounded-lg bg-blue-600 dark:bg-blue-700 text-white hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
                 >
                   <RotateCcw className="h-4 w-4" />
                   <span>Restore</span>
@@ -210,9 +210,9 @@ export default function TrashBin() {
       {/* Error Message */}
       {error && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 mt-3">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start space-x-3">
-            <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-red-700">{error}</p>
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-start space-x-3">
+            <AlertCircle className="h-5 w-5 text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
           </div>
         </div>
       )}
@@ -222,7 +222,7 @@ export default function TrashBin() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="mt-2 text-gray-600">Loading trash...</p>
+            <p className="mt-2 text-gray-600 dark:text-slate-400">Loading trash...</p>
           </div>
         </div>
       )}
@@ -231,9 +231,9 @@ export default function TrashBin() {
       {!loading && trash.length === 0 && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center">
-            <Trash2 className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-lg font-medium text-gray-900">Your trash is empty</h3>
-            <p className="mt-1 text-sm text-gray-500">
+            <Trash2 className="mx-auto h-12 w-12 text-gray-400 dark:text-slate-500" />
+            <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-slate-100">Your trash is empty</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
               Deleted items will appear here. Items deleted more than 30 days ago are permanently removed.
             </p>
           </div>
@@ -243,21 +243,21 @@ export default function TrashBin() {
       {/* Trash Table */}
       {!loading && trash.length > 0 && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow overflow-hidden">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-gray-50 dark:bg-slate-750 border-b border-gray-200 dark:border-slate-700">
                 <tr>
                   <th className="px-6 py-3 text-left">
                     <input
                       type="checkbox"
                       checked={selectedIds.size === trash.length && trash.length > 0}
                       onChange={handleSelectAll}
-                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      className="h-4 w-4 rounded border-gray-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 cursor-pointer dark:bg-slate-700"
                     />
                   </th>
                   <th
-                    onClick={() => toggleSort('trans_no')}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('trans_no')}
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-slate-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-700"
                   >
                     <div className="flex items-center space-x-1">
                       <span>Transaction</span>
@@ -277,7 +277,7 @@ export default function TrashBin() {
                   </th>
                   <th
                     onClick={() => toggleSort('deleted_at')}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-slate-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-700"
                   >
                     <div className="flex items-center space-x-1">
                       <span>Deleted</span>
@@ -286,50 +286,50 @@ export default function TrashBin() {
                       )}
                     </div>
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 dark:text-slate-300 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
                 {trash.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-slate-750 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <input
                         type="checkbox"
                         checked={selectedIds.has(item.id)}
                         onChange={() => handleSelectOne(item.id)}
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        className="h-4 w-4 rounded border-gray-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 cursor-pointer dark:bg-slate-700"
                       />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-medium text-gray-900">{item.trans_no || '-'}</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-slate-200">{item.trans_no || '-'}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-600">{item.driver || '-'}</span>
+                      <span className="text-sm text-gray-600 dark:text-slate-400">{item.driver || '-'}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-600">{item.product || '-'}</span>
+                      <span className="text-sm text-gray-600 dark:text-slate-400">{item.product || '-'}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-600">{item.plate || '-'}</span>
+                      <span className="text-sm text-gray-600 dark:text-slate-400">{item.plate || '-'}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-500">{formatDate(item.deleted_at)}</span>
+                      <span className="text-sm text-gray-500 dark:text-slate-400">{formatDate(item.deleted_at)}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex items-center justify-end space-x-2">
                         <button
                           onClick={() => handleRestore(item.id)}
                           title="Restore"
-                          className="inline-flex items-center px-2 py-1 rounded text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors"
+                          className="inline-flex items-center px-2 py-1 rounded text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                         >
                           <RotateCcw className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handlePermanentDelete(item.id)}
                           title="Permanently delete"
-                          className="inline-flex items-center px-2 py-1 rounded text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                          className="inline-flex items-center px-2 py-1 rounded text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                         >
                           <Trash className="h-4 w-4" />
                         </button>
@@ -343,14 +343,14 @@ export default function TrashBin() {
 
           {/* Pagination */}
           <div className="mt-6 flex items-center justify-between">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-slate-400">
               Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, total)} of {total} items
             </p>
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setPage(Math.max(1, page - 1))}
                 disabled={page === 1}
-                className="inline-flex items-center px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="inline-flex items-center px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -366,8 +366,8 @@ export default function TrashBin() {
                       onClick={() => setPage(pageNum)}
                       className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         pageNum === page
-                          ? 'bg-blue-600 text-white'
-                          : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                          ? 'bg-blue-600 dark:bg-blue-700 text-white'
+                          : 'border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-600'
                       }`}
                     >
                       {pageNum}
@@ -379,7 +379,7 @@ export default function TrashBin() {
               <button
                 onClick={() => setPage(Math.min(totalPages, page + 1))}
                 disabled={page === totalPages}
-                className="inline-flex items-center px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="inline-flex items-center px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>

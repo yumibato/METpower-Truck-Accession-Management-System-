@@ -1,6 +1,8 @@
 // Trash/Restore Routes for Transaction Management
 // Import this module and call setupTrashRoutes(app, pool) after sql.connect
 
+import { logAuditEntry, logBulkAuditEntries, extractUsername, extractUserId } from './audit-utils.js';
+
 export function setupTrashRoutes(app, pool, sql) {
   // ===== BULK OPERATIONS (MUST BE FIRST - before parameterized routes) =====
   
@@ -30,6 +32,12 @@ export function setupTrashRoutes(app, pool, sql) {
 
       const affectedRows = result.rowsAffected[0] || 0;
       console.log(`[BULK_TRASH] Moved ${affectedRows} transactions to trash`);
+
+      // Log audit entries for affected transactions
+      const username = extractUsername(req);
+      const userId = extractUserId(req);
+      const affectedIds = ids.slice(0, affectedRows); // Only log for actually affected rows
+      await logBulkAuditEntries(pool, sql, affectedIds, 'BULK_DELETE', username, userId, `Bulk moved to trash (${affectedRows} items)`);
 
       res.json({
         success: true,
@@ -66,6 +74,12 @@ export function setupTrashRoutes(app, pool, sql) {
 
       const affectedRows = result.rowsAffected[0] || 0;
       console.log(`[BULK_RESTORE] Restored ${affectedRows} transactions from trash`);
+
+      // Log audit entries for affected transactions
+      const username = extractUsername(req);
+      const userId = extractUserId(req);
+      const affectedIds = ids.slice(0, affectedRows); // Only log for actually affected rows
+      await logBulkAuditEntries(pool, sql, affectedIds, 'BULK_RESTORE', username, userId, `Bulk restored from trash (${affectedRows} items)`);
 
       res.json({
         success: true,
@@ -106,6 +120,12 @@ export function setupTrashRoutes(app, pool, sql) {
 
       const affectedRows = result.rowsAffected[0] || 0;
       console.log(`[BULK_STATUS] Updated status for ${affectedRows} transactions`);
+
+      // Log audit entries for affected transactions
+      const username = extractUsername(req);
+      const userId = extractUserId(req);
+      const affectedIds = ids.slice(0, affectedRows); // Only log for actually affected rows
+      await logBulkAuditEntries(pool, sql, affectedIds, 'BULK_STATUS_UPDATE', username, userId, `Bulk status update to "${status}" (${affectedRows} items)`);
 
       res.json({
         success: true,
@@ -216,6 +236,11 @@ export function setupTrashRoutes(app, pool, sql) {
 
       const transaction = selectResult.recordset ? selectResult.recordset[0] : null;
 
+      // Log audit entry
+      const username = extractUsername(req);
+      const userId = extractUserId(req);
+      await logAuditEntry(pool, sql, id, 'DELETE', username, userId, 'Transaction moved to trash');
+
       console.log(`[TRASH] Successfully moved transaction ${id} to trash`);
       res.json({
         success: true,
@@ -264,6 +289,11 @@ export function setupTrashRoutes(app, pool, sql) {
       `);
 
       const transaction = selectResult.recordset ? selectResult.recordset[0] : null;
+
+      // Log audit entry
+      const username = extractUsername(req);
+      const userId = extractUserId(req);
+      await logAuditEntry(pool, sql, id, 'RESTORE', username, userId, 'Transaction restored from trash');
 
       console.log(`[RESTORE] Successfully restored transaction ${id}`);
       res.json({

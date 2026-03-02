@@ -1,7 +1,8 @@
 import React from 'react';
-import { X, Calendar, Package, Truck, User, Building2, Scale } from 'lucide-react';
+import { X, Calendar, Package, Truck, User, Building2, Scale, Clock } from 'lucide-react';
 import { Transaction } from '../types/Transaction';
 import { format } from 'date-fns';
+import AuditLog from './AuditLog';
 
 // Function to format datetime for HTML input
 const formatDateTimeForInput = (dateTimeString: string | null | undefined): string => {
@@ -76,6 +77,7 @@ export default function TransactionModal({
   const [formData, setFormData] = React.useState<Partial<Transaction>>({});
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
+  const [showAuditLog, setShowAuditLog] = React.useState(false);
 
   React.useEffect(() => {
     if (transaction) {
@@ -778,6 +780,35 @@ export default function TransactionModal({
         </div>
 
         {/* Footer - Fixed at bottom */}
+        {mode === 'view' && (
+          <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex-shrink-0">
+            <div className="flex justify-between items-center">
+              <button
+                onClick={() => setShowAuditLog(true)}
+                className="flex items-center space-x-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <Clock className="w-4 h-4" />
+                <span>View Activity Log</span>
+              </button>
+              <div className="flex space-x-3">
+                {onEdit && (
+                  <button
+                    onClick={onEdit}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Edit Transaction
+                  </button>
+                )}
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {mode === 'edit' && (
           <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex-shrink-0">
             <div className="flex justify-end space-x-3">
@@ -805,6 +836,14 @@ export default function TransactionModal({
           </div>
         )}
       </div>
+      
+      {/* Audit Log Modal */}
+      {showAuditLog && transaction && (
+        <AuditLog 
+          transactionId={transaction.id} 
+          onClose={() => setShowAuditLog(false)} 
+        />
+      )}
     </div>
   );
 }
