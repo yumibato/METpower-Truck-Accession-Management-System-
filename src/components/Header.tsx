@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, User, Trash2, Zap, Bell } from 'lucide-react';
+import { LogOut, User, Trash2, Zap, Bell, Wifi, WifiOff, BarChart3, FileText, Activity } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ThemeToggle from './ThemeToggle';
 import NotificationHistory from './NotificationHistory';
@@ -15,13 +15,25 @@ export default function Header() {
   const [logoError, setLogoError] = useState(false);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [serverOnline, setServerOnline] = useState<boolean | null>(null);
+
+  const checkServerHealth = async () => {
+    try {
+      await axios.get(`${API_URL}/health`, { timeout: 4000, withCredentials: true });
+      setServerOnline(true);
+    } catch {
+      setServerOnline(false);
+    }
+  };
 
   useEffect(() => {
     // Fetch initial unread count
     fetchUnreadCount();
+    checkServerHealth();
     
     // Poll for unread count every 30 seconds
     const interval = setInterval(fetchUnreadCount, 30000);
+    const healthInterval = setInterval(checkServerHealth, 15000);
     
     // Listen for real-time notification events
     const handleNewNotification = () => {
@@ -31,6 +43,7 @@ export default function Header() {
     
     return () => {
       clearInterval(interval);
+      clearInterval(healthInterval);
       window.removeEventListener('notification-received', handleNewNotification);
     };
   }, []);
@@ -95,6 +108,39 @@ export default function Header() {
               📊 Dashboard
             </button>
             <button
+              onClick={() => navigate('/transactions')}
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center space-x-2 ${
+                isActive('/transactions')
+                  ? 'bg-blue-50 dark:bg-neon-cyan-glow/20 text-blue-600 dark:text-neon-cyan-glow border-b-2 border-blue-600 dark:border-neon-cyan-glow'
+                  : 'text-gray-700 dark:text-enterprise-silver hover:bg-gray-50 dark:hover:bg-midnight-700'
+              }`}
+            >
+              <FileText className="h-4 w-4" />
+              <span>Transactions</span>
+            </button>
+            <button
+              onClick={() => navigate('/activity-log')}
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center space-x-2 ${
+                isActive('/activity-log')
+                  ? 'bg-blue-50 dark:bg-neon-cyan-glow/20 text-blue-600 dark:text-neon-cyan-glow border-b-2 border-blue-600 dark:border-neon-cyan-glow'
+                  : 'text-gray-700 dark:text-enterprise-silver hover:bg-gray-50 dark:hover:bg-midnight-700'
+              }`}
+            >
+              <Activity className="h-4 w-4" />
+              <span>Activity Log</span>
+            </button>
+            <button
+              onClick={() => navigate('/analytics')}
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center space-x-2 ${
+                isActive('/analytics')
+                  ? 'bg-blue-50 dark:bg-neon-cyan-glow/20 text-blue-600 dark:text-neon-cyan-glow border-b-2 border-blue-600 dark:border-neon-cyan-glow'
+                  : 'text-gray-700 dark:text-enterprise-silver hover:bg-gray-50 dark:hover:bg-midnight-700'
+              }`}
+            >
+              <BarChart3 className="h-4 w-4" />
+              <span>Analytics</span>
+            </button>
+            <button
               onClick={() => navigate('/trash')}
               className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center space-x-2 ${
                 isActive('/trash')
@@ -109,6 +155,37 @@ export default function Header() {
 
           {/* User Menu */}
           <div className="flex items-center space-x-4">
+            {/* Server Status Indicator */}
+            <div
+              title={serverOnline === null ? 'Checking server…' : serverOnline ? 'Server connected' : 'Server unreachable'}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                serverOnline === null
+                  ? 'bg-gray-100 dark:bg-midnight-700 border-gray-300 dark:border-midnight-500 text-gray-500 dark:text-enterprise-muted'
+                  : serverOnline
+                  ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400'
+                  : 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700 text-red-700 dark:text-red-400'
+              }`}
+            >
+              {serverOnline === null ? (
+                <span className="h-2 w-2 rounded-full bg-gray-400 animate-pulse" />
+              ) : serverOnline ? (
+                <>
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                  </span>
+                  <Wifi className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Live</span>
+                </>
+              ) : (
+                <>
+                  <span className="h-2 w-2 rounded-full bg-red-500" />
+                  <WifiOff className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Offline</span>
+                </>
+              )}
+            </div>
+
             {/* Notification Bell */}
             <button
               onClick={() => setIsNotificationPanelOpen(true)}

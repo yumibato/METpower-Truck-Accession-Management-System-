@@ -13,6 +13,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "migrate": "node migrate-users.js",
+    "migrate:all": "node run-migrations.js",
+    "migrate:analytics": "node run-migrations.js",
     "create-admin": "node create-admin.js"
   },
   "dependencies": {
@@ -34,6 +36,7 @@
     "react-datepicker": "^8.9.0",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.8.1",
+    "recharts": "^2.10.0",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "xlsx": "^0.18.5"

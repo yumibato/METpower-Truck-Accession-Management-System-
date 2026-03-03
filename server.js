@@ -443,6 +443,11 @@ sql.connect(config)
       }
     });
 
+    // Health check endpoint
+    app.get('/api/health', (req, res) => {
+      res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    });
+
     // Transaction data endpoint with pagination/filtering
     app.get('/api/transac', async (req, res) => {
       try {
@@ -1107,6 +1112,775 @@ sql.connect(config)
     });
 
     // ===== END NOTIFICATION ENDPOINTS =====
+
+    // ===== GAS MONITORING ENDPOINTS =====
+
+    // GET gas monitoring data with optional date range filtering
+    app.get('/api/analytics/gas-monitoring', async (req, res) => {
+      try {
+        const { startDate, endDate, groupByHour } = req.query;
+        const start = startDate ? new Date(startDate) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // Default 7 days
+        const end = endDate ? new Date(endDate) : new Date();
+
+        const request = pool.request();
+        request.input('StartDate', sql.DateTime, start);
+        request.input('EndDate', sql.DateTime, end);
+        request.input('GroupByHour', sql.Bit, groupByHour === 'true' ? 1 : 0);
+
+        const result = await request.execute('sp_get_gas_trends');
+        res.json(result.recordset);
+      } catch (err) {
+        console.error('GET /api/analytics/gas-monitoring error:', err);
+        res.status(500).json({ error: 'Failed to fetch gas monitoring data', details: err.message });
+      }
+    });
+
+    // POST new gas monitoring reading
+    app.post('/api/analytics/gas-monitoring', async (req, res) => {
+      try {
+        const { reading_datetime, gas_volume_produced, gas_volume_used, gas_volume_flared, gas_volume_stored, gas_pressure, temperature, quality_status } = req.body;
+        const userId = extractUserId(req);
+
+        const request = pool.request();
+        request.input('reading_datetime', sql.DateTime, new Date(reading_datetime));
+        request.input('gas_volume_produced', sql.Decimal(12, 2), gas_volume_produced);
+        request.input('gas_volume_used', sql.Decimal(12, 2), gas_volume_used);
+        request.input('gas_volume_flared', sql.Decimal(12, 2), gas_volume_flared);
+        request.input('gas_volume_stored', sql.Decimal(12, 2), gas_volume_stored || null);
+        request.input('gas_pressure', sql.Decimal(8, 2), gas_pressure || null);
+        request.input('temperature', sql.Decimal(8, 2), temperature || null);
+        request.input('quality_status', sql.NVarChar(50), quality_status || 'Good');
+        request.input('created_by', sql.NVarChar(100), userId || 'SYSTEM');
+
+        const result = await request.query(`
+          INSERT INTO [dbo].[gas_monitoring] 
+            ([reading_datetime], [gas_volume_produced], [gas_volume_used], [gas_volume_flared], 
+             [gas_volume_stored], [gas_pressure], [temperature], [quality_status], [created_by])
+          OUTPUT inserted.id, inserted.reading_datetime, inserted.gas_volume_produced, 
+                 inserted.gas_volume_used, inserted.gas_volume_flared, inserted.created_at
+          VALUES (@reading_datetime, @gas_volume_produced, @gas_volume_used, @gas_volume_flared, 
+                  @gas_volume_stored, @gas_pressure, @temperature, @quality_status, @created_by)
+        `);
+
+        logAuditEntry(pool, null, userId, 'CREATE', 'gas_monitoring', `Added gas monitoring reading`, req);
+        notifyActivity(app, { type: 'success', title: 'Gas Monitoring', message: 'New gas reading recorded' });
+
+        res.status(201).json(result.recordset[0]);
+      } catch (err) {
+        console.error('POST /api/analytics/gas-monitoring error:', err);
+        res.status(500).json({ error: 'Failed to create gas monitoring record', details: err.message });
+      }
+    });
+
+    // ===== PLANT UTILITIES ENDPOINTS =====
+
+    // GET utilities data with optional date range filtering
+    app.get('/api/analytics/plant-utilities', async (req, res) => {
+      try {
+        const { startDate, endDate } = req.query;
+        const start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Default 30 days
+        const end = endDate ? new Date(endDate) : new Date();
+
+        const request = pool.request();
+        request.input('StartDate', sql.Date, start);
+        request.input('EndDate', sql.Date, end);
+
+        const result = await request.execute('sp_get_utilities_summary');
+        res.json(result.recordset);
+      } catch (err) {
+        console.error('GET /api/analytics/plant-utilities error:', err);
+        res.status(500).json({ error: 'Failed to fetch utilities data', details: err.message });
+      }
+    });
+
+    // GET utilities summary (overview/dashboard)
+    app.get('/api/analytics/plant-utilities/summary', async (req, res) => {
+      try {
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+        const result = await pool.request()
+          .input('StartDate', sql.Date, thirtyDaysAgo)
+          .input('EndDate', sql.Date, new Date())
+          .execute('sp_get_utilities_summary');
+
+        const data = result.recordset;
+        
+        const summary = {
+          totalElectricityKwh: data.reduce((sum, row) => sum + (row.electricity_consumed_kwh || 0), 0),
+          totalWaterM3: data.reduce((sum, row) => sum + (row.water_consumption_m3 || 0), 0),
+          totalCost: data.reduce((sum, row) => sum + (row.total_cost || 0), 0),
+          averageDailyCost: data.length > 0 ? (data.reduce((sum, row) => sum + (row.total_cost || 0), 0) / data.length).toFixed(2) : 0,
+          averageCostPerTon: data.length > 0 ? (data.reduce((sum, row) => sum + (row.cost_per_ton_produced || 0), 0) / data.length).toFixed(4) : 0,
+          highestDailyCost: Math.max(...data.map(row => row.total_cost || 0)),
+          lowestDailyCost: Math.min(...data.map(row => row.total_cost || 0)),
+          recordCount: data.length
+        };
+
+        res.json(summary);
+      } catch (err) {
+        console.error('GET /api/analytics/plant-utilities/summary error:', err);
+        res.status(500).json({ error: 'Failed to fetch utilities summary', details: err.message });
+      }
+    });
+
+    // POST new utilities record
+    app.post('/api/analytics/plant-utilities', async (req, res) => {
+      try {
+        const { utility_date, electricity_consumed_kwh, water_consumption_m3, electricity_cost, water_cost, cost_per_ton_produced, notes } = req.body;
+        const userId = extractUserId(req);
+        const totalCost = (electricity_cost || 0) + (water_cost || 0);
+
+        const request = pool.request();
+        request.input('utility_date', sql.Date, new Date(utility_date));
+        request.input('electricity_consumed_kwh', sql.Decimal(12, 2), electricity_consumed_kwh);
+        request.input('water_consumption_m3', sql.Decimal(12, 2), water_consumption_m3);
+        request.input('electricity_cost', sql.Decimal(12, 2), electricity_cost);
+        request.input('water_cost', sql.Decimal(12, 2), water_cost);
+        request.input('total_cost', sql.Decimal(12, 2), totalCost);
+        request.input('cost_per_ton_produced', sql.Decimal(10, 4), cost_per_ton_produced || null);
+        request.input('notes', sql.NVarChar(500), notes || null);
+        request.input('created_by', sql.NVarChar(100), userId || 'SYSTEM');
+
+        const result = await request.query(`
+          INSERT INTO [dbo].[plant_utilities]
+            ([utility_date], [electricity_consumed_kwh], [water_consumption_m3], [electricity_cost], 
+             [water_cost], [total_cost], [cost_per_ton_produced], [notes], [created_by])
+          OUTPUT inserted.id, inserted.utility_date, inserted.electricity_consumed_kwh, 
+                 inserted.electricity_cost, inserted.water_cost, inserted.total_cost, inserted.created_at
+          VALUES (@utility_date, @electricity_consumed_kwh, @water_consumption_m3, @electricity_cost, 
+                  @water_cost, @total_cost, @cost_per_ton_produced, @notes, @created_by)
+        `);
+
+        logAuditEntry(pool, null, userId, 'CREATE', 'plant_utilities', `Added utilities record for ${utility_date}`, req);
+        notifyActivity(app, { type: 'success', title: 'Plant Utilities', message: 'New utilities record logged' });
+
+        res.status(201).json(result.recordset[0]);
+      } catch (err) {
+        console.error('POST /api/analytics/plant-utilities error:', err);
+        res.status(500).json({ error: 'Failed to create utilities record', details: err.message });
+      }
+    });
+
+    // Weight Trends Analytics - Daily aggregate of gross/net/tare weights
+    app.get('/api/analytics/weight-trends', async (req, res) => {
+      try {
+        const startDateStr = req.query.startDate || (() => {
+          const d = new Date();
+          d.setDate(d.getDate() - 30);
+          return d.toISOString().split('T')[0];
+        })();
+        
+        const endDateStr = req.query.endDate || new Date().toISOString().split('T')[0];
+        const startTime = req.query.startTime || '00:00';
+        const endTime = req.query.endTime || '23:59';
+
+        const request = pool.request();
+        
+        // Parse date strings safely to avoid timezone issues  
+        const [sy, sm, sd] = startDateStr.split('-').map(Number);
+        const [ey, em, ed] = endDateStr.split('-').map(Number);
+        request.input('startDate', sql.Date, new Date(sy, sm - 1, sd));
+        request.input('endDate', sql.Date, new Date(ey, em - 1, ed));
+
+        const query = `
+          SELECT 
+            CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) AS date) as transac_date,
+            SUM(TRY_CONVERT(DECIMAL(18,2), [gross_weight])) as gross_weight,
+            AVG(TRY_CONVERT(DECIMAL(18,2), [net_weight])) as net_weight,
+            AVG(TRY_CONVERT(DECIMAL(18,2), [tare_weight])) as tare_weight,
+            COUNT(*) as count
+          FROM [FTSS].[dbo].[transac]
+          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) >= @startDate
+            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) <= @endDate
+            AND [deleted_at] IS NULL
+          GROUP BY CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) AS date)
+          ORDER BY transac_date ASC
+        `;
+
+        const result = await request.query(query);
+        res.json(result.recordset || []);
+      } catch (err) {
+        console.error('GET /api/analytics/weight-trends error:', err);
+        res.status(500).json({ error: 'Failed to fetch weight trends', details: err.message });
+      }
+    });
+
+    // Transac Date Range - returns earliest and latest available transaction dates
+    app.get('/api/analytics/transac-date-range', async (req, res) => {
+      try {
+        const request = pool.request();
+        const query = `
+          SELECT
+            MIN(CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) AS date)) as min_date,
+            MAX(CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) AS date)) as max_date
+          FROM [FTSS].[dbo].[transac]
+          WHERE [deleted_at] IS NULL
+            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) IS NOT NULL
+        `;
+        const result = await request.query(query);
+        const row = result.recordset[0] || {};
+        res.json({
+          minDate: row.min_date ? new Date(row.min_date).toISOString().split('T')[0] : null,
+          maxDate: row.max_date ? new Date(row.max_date).toISOString().split('T')[0] : null,
+        });
+      } catch (err) {
+        console.error('GET /api/analytics/transac-date-range error:', err);
+        res.status(500).json({ error: 'Failed to fetch date range', details: err.message });
+      }
+    });
+
+    // Weight Summary - aggregate KPIs across all records
+    app.get('/api/analytics/weight-summary', async (req, res) => {
+      try {
+        const request = pool.request();
+        const result = await request.query(`
+          SELECT
+            COUNT(*) as total_records,
+            SUM(TRY_CONVERT(DECIMAL(18,2), [gross_weight]))  as total_gross_weight,
+            SUM(TRY_CONVERT(DECIMAL(18,2), [net_weight]))    as total_net_weight,
+            SUM(TRY_CONVERT(DECIMAL(18,2), [tare_weight]))   as total_tare_weight,
+            AVG(TRY_CONVERT(DECIMAL(18,2), [net_weight]))    as avg_net_weight,
+            AVG(CASE WHEN TRY_CONVERT(DECIMAL(18,2), [gross_weight]) > 0
+                THEN TRY_CONVERT(DECIMAL(18,2), [net_weight]) / TRY_CONVERT(DECIMAL(18,2), [gross_weight]) * 100
+                ELSE NULL END) as avg_net_payload_pct,
+            AVG(CASE WHEN TRY_CONVERT(DECIMAL(18,2), [gross_weight]) > 0
+                THEN TRY_CONVERT(DECIMAL(18,2), [tare_weight]) / TRY_CONVERT(DECIMAL(18,2), [gross_weight]) * 100
+                ELSE NULL END) as avg_tare_pct,
+            SUM(CASE WHEN COALESCE(CAST([date] AS date), TRY_CONVERT(date, transac_date), TRY_CONVERT(date, inbound))
+                          = CAST(GETDATE() AS DATE)
+                THEN 1 ELSE 0 END) as today_trips,
+            SUM(CASE WHEN COALESCE(CAST([date] AS date), TRY_CONVERT(date, transac_date), TRY_CONVERT(date, inbound))
+                          >= DATEADD(DAY, -(DATEDIFF(DAY, '2000-01-03', GETDATE()) % 7), CAST(GETDATE() AS DATE))
+                THEN 1 ELSE 0 END) as week_trips
+          FROM [FTSS].[dbo].[transac]
+          WHERE [deleted_at] IS NULL
+        `);
+        const row = result.recordset[0] || {};
+        res.json({
+          totalRecords:      row.total_records      ?? 0,
+          totalGrossWeight:  row.total_gross_weight  != null ? parseFloat(row.total_gross_weight)  : null,
+          totalNetWeight:    row.total_net_weight    != null ? parseFloat(row.total_net_weight)    : null,
+          totalTareWeight:   row.total_tare_weight   != null ? parseFloat(row.total_tare_weight)   : null,
+          avgNetWeight:      row.avg_net_weight      != null ? parseFloat(row.avg_net_weight)      : null,
+          avgNetPayloadPct:  row.avg_net_payload_pct != null ? parseFloat(row.avg_net_payload_pct) : null,
+          avgTarePct:        row.avg_tare_pct        != null ? parseFloat(row.avg_tare_pct)        : null,
+          todayTrips:        row.today_trips         ?? 0,
+          weekTrips:         row.week_trips          ?? 0,
+        });
+      } catch (err) {
+        console.error('GET /api/analytics/weight-summary error:', err);
+        res.status(500).json({ error: 'Failed to fetch weight summary', details: err.message });
+      }
+    });
+
+    // Transaction Volume - daily count of transactions in a date range
+    app.get('/api/analytics/transaction-volume', async (req, res) => {
+      try {
+        const startDateStr = req.query.startDate || (() => {
+          const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split('T')[0];
+        })();
+        const endDateStr = req.query.endDate || new Date().toISOString().split('T')[0];
+        const [sy, sm, sd] = startDateStr.split('-').map(Number);
+        const [ey, em, ed] = endDateStr.split('-').map(Number);
+        const request = pool.request();
+        request.input('startDate', sql.Date, new Date(sy, sm - 1, sd));
+        request.input('endDate', sql.Date, new Date(ey, em - 1, ed));
+        const query = `
+          SELECT
+            CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) AS date) as transac_date,
+            COUNT(*) as count
+          FROM [FTSS].[dbo].[transac]
+          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) >= @startDate
+            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) <= @endDate
+            AND [deleted_at] IS NULL
+          GROUP BY CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) AS date)
+          ORDER BY transac_date ASC
+        `;
+        const result = await request.query(query);
+        res.json(result.recordset || []);
+      } catch (err) {
+        console.error('GET /api/analytics/transaction-volume error:', err);
+        res.status(500).json({ error: 'Failed to fetch transaction volume', details: err.message });
+      }
+    });
+
+    // Product Distribution - count and total weight per product in a date range
+    app.get('/api/analytics/product-distribution', async (req, res) => {
+      try {
+        const startDateStr = req.query.startDate || (() => {
+          const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split('T')[0];
+        })();
+        const endDateStr = req.query.endDate || new Date().toISOString().split('T')[0];
+        const [sy, sm, sd] = startDateStr.split('-').map(Number);
+        const [ey, em, ed] = endDateStr.split('-').map(Number);
+        const request = pool.request();
+        request.input('startDate', sql.Date, new Date(sy, sm - 1, sd));
+        request.input('endDate', sql.Date, new Date(ey, em - 1, ed));
+        const query = `
+          SELECT
+            ISNULL(NULLIF(LTRIM(RTRIM([product])), ''), 'Unknown') as product,
+            COUNT(*) as count,
+            SUM(TRY_CONVERT(DECIMAL(18,2), [gross_weight])) as total_weight
+          FROM [FTSS].[dbo].[transac]
+          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) >= @startDate
+            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) <= @endDate
+            AND [deleted_at] IS NULL
+          GROUP BY ISNULL(NULLIF(LTRIM(RTRIM([product])), ''), 'Unknown')
+          ORDER BY count DESC
+        `;
+        const result = await request.query(query);
+        res.json(result.recordset || []);
+      } catch (err) {
+        console.error('GET /api/analytics/product-distribution error:', err);
+        res.status(500).json({ error: 'Failed to fetch product distribution', details: err.message });
+      }
+    });
+
+    // ── Status Breakdown ──────────────────────────────────────────────────
+    app.get('/api/analytics/status-breakdown', async (req, res) => {
+      try {
+        const startDateStr = req.query.startDate || (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 1); return d.toISOString().split('T')[0]; })();
+        const endDateStr   = req.query.endDate   || new Date().toISOString().split('T')[0];
+        const [sy,sm,sd] = startDateStr.split('-').map(Number);
+        const [ey,em,ed] = endDateStr.split('-').map(Number);
+        const request = pool.request();
+        request.input('startDate', sql.Date, new Date(sy,sm-1,sd));
+        request.input('endDate',   sql.Date, new Date(ey,em-1,ed));
+        const result = await request.query(`
+          SELECT
+            ISNULL(NULLIF(LTRIM(RTRIM([status])),''),'Unknown') as status,
+            COUNT(*) as count
+          FROM [FTSS].[dbo].[transac]
+          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= @startDate
+            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= @endDate
+            AND [deleted_at] IS NULL
+          GROUP BY ISNULL(NULLIF(LTRIM(RTRIM([status])),''),'Unknown')
+          ORDER BY count DESC
+        `);
+        res.json(result.recordset || []);
+      } catch (err) { res.status(500).json({ error: 'Failed', details: err.message }); }
+    });
+
+    // ── Top Drivers by Tonnage ─────────────────────────────────────────────
+    app.get('/api/analytics/top-drivers', async (req, res) => {
+      try {
+        const startDateStr = req.query.startDate || (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 1); return d.toISOString().split('T')[0]; })();
+        const endDateStr   = req.query.endDate   || new Date().toISOString().split('T')[0];
+        const limit = Math.min(parseInt(req.query.limit) || 15, 50);
+        const [sy,sm,sd] = startDateStr.split('-').map(Number);
+        const [ey,em,ed] = endDateStr.split('-').map(Number);
+        const request = pool.request();
+        request.input('startDate', sql.Date, new Date(sy,sm-1,sd));
+        request.input('endDate',   sql.Date, new Date(ey,em-1,ed));
+        request.input('limit', sql.Int, limit);
+        const result = await request.query(`
+          SELECT TOP (@limit)
+            ISNULL(NULLIF(LTRIM(RTRIM([driver])),''),'Unknown') as driver,
+            COUNT(*) as trips,
+            SUM(TRY_CONVERT(DECIMAL(18,2),[gross_weight])) as total_weight
+          FROM [FTSS].[dbo].[transac]
+          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= @startDate
+            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= @endDate
+            AND [deleted_at] IS NULL
+          GROUP BY ISNULL(NULLIF(LTRIM(RTRIM([driver])),''),'Unknown')
+          ORDER BY total_weight DESC
+        `);
+        res.json(result.recordset || []);
+      } catch (err) { res.status(500).json({ error: 'Failed', details: err.message }); }
+    });
+
+    // ── Top Vehicles by Trips ──────────────────────────────────────────────
+    app.get('/api/analytics/top-vehicles', async (req, res) => {
+      try {
+        const startDateStr = req.query.startDate || (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 1); return d.toISOString().split('T')[0]; })();
+        const endDateStr   = req.query.endDate   || new Date().toISOString().split('T')[0];
+        const limit = Math.min(parseInt(req.query.limit) || 15, 50);
+        const [sy,sm,sd] = startDateStr.split('-').map(Number);
+        const [ey,em,ed] = endDateStr.split('-').map(Number);
+        const request = pool.request();
+        request.input('startDate', sql.Date, new Date(sy,sm-1,sd));
+        request.input('endDate',   sql.Date, new Date(ey,em-1,ed));
+        request.input('limit', sql.Int, limit);
+        const result = await request.query(`
+          SELECT TOP (@limit)
+            ISNULL(NULLIF(LTRIM(RTRIM([plate])),''),'Unknown') as plate,
+            COUNT(*) as trips,
+            SUM(TRY_CONVERT(DECIMAL(18,2),[gross_weight])) as total_weight
+          FROM [FTSS].[dbo].[transac]
+          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= @startDate
+            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= @endDate
+            AND [deleted_at] IS NULL
+          GROUP BY ISNULL(NULLIF(LTRIM(RTRIM([plate])),''),'Unknown')
+          ORDER BY trips DESC
+        `);
+        res.json(result.recordset || []);
+      } catch (err) { res.status(500).json({ error: 'Failed', details: err.message }); }
+    });
+
+    // ── Hourly Traffic Heatmap ─────────────────────────────────────────────
+    app.get('/api/analytics/hourly-heatmap', async (req, res) => {
+      try {
+        const startDateStr = req.query.startDate || (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 1); return d.toISOString().split('T')[0]; })();
+        const endDateStr   = req.query.endDate   || new Date().toISOString().split('T')[0];
+        const [sy,sm,sd] = startDateStr.split('-').map(Number);
+        const [ey,em,ed] = endDateStr.split('-').map(Number);
+        const request = pool.request();
+        request.input('startDate', sql.Date, new Date(sy,sm-1,sd));
+        request.input('endDate',   sql.Date, new Date(ey,em-1,ed));
+        const result = await request.query(`
+          SELECT
+            DATEPART(weekday, COALESCE(TRY_CONVERT(datetime,[inbound]), TRY_CONVERT(datetime,[transac_date]),
+              CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date])) AS datetime))) as dow,
+            DATEPART(hour, COALESCE(TRY_CONVERT(datetime,[inbound]), TRY_CONVERT(datetime,[transac_date]),
+              CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date])) AS datetime))) as hour,
+            COUNT(*) as count
+          FROM [FTSS].[dbo].[transac]
+          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= @startDate
+            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= @endDate
+            AND [deleted_at] IS NULL
+          GROUP BY
+            DATEPART(weekday, COALESCE(TRY_CONVERT(datetime,[inbound]), TRY_CONVERT(datetime,[transac_date]),
+              CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date])) AS datetime))),
+            DATEPART(hour, COALESCE(TRY_CONVERT(datetime,[inbound]), TRY_CONVERT(datetime,[transac_date]),
+              CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date])) AS datetime)))
+          ORDER BY dow, hour
+        `);
+        res.json(result.recordset || []);
+      } catch (err) { res.status(500).json({ error: 'Failed', details: err.message }); }
+    });
+
+    // ── Monthly Tonnage ────────────────────────────────────────────────────
+    app.get('/api/analytics/monthly-tonnage', async (req, res) => {
+      try {
+        const startDateStr = req.query.startDate || (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 3); return d.toISOString().split('T')[0]; })();
+        const endDateStr   = req.query.endDate   || new Date().toISOString().split('T')[0];
+        const [sy,sm,sd] = startDateStr.split('-').map(Number);
+        const [ey,em,ed] = endDateStr.split('-').map(Number);
+        const request = pool.request();
+        request.input('startDate', sql.Date, new Date(sy,sm-1,sd));
+        request.input('endDate',   sql.Date, new Date(ey,em-1,ed));
+        const result = await request.query(`
+          SELECT
+            YEAR(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound]))) as year,
+            MONTH(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound]))) as month,
+            SUM(TRY_CONVERT(DECIMAL(18,2),[gross_weight])) as total_weight,
+            COUNT(*) as trips
+          FROM [FTSS].[dbo].[transac]
+          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= @startDate
+            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= @endDate
+            AND [deleted_at] IS NULL
+          GROUP BY
+            YEAR(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound]))),
+            MONTH(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])))
+          ORDER BY year ASC, month ASC
+        `);
+        res.json(result.recordset || []);
+      } catch (err) { res.status(500).json({ error: 'Failed', details: err.message }); }
+    });
+
+    // ── Average Turnaround Time ────────────────────────────────────────────
+    app.get('/api/analytics/turnaround-time', async (req, res) => {
+      try {
+        const startDateStr = req.query.startDate || (() => { const d = new Date(); d.setDate(d.getDate() - 90); return d.toISOString().split('T')[0]; })();
+        const endDateStr   = req.query.endDate   || new Date().toISOString().split('T')[0];
+        const [sy,sm,sd] = startDateStr.split('-').map(Number);
+        const [ey,em,ed] = endDateStr.split('-').map(Number);
+        const request = pool.request();
+        request.input('startDate', sql.Date, new Date(sy,sm-1,sd));
+        request.input('endDate',   sql.Date, new Date(ey,em-1,ed));
+        const result = await request.query(`
+          SELECT
+            CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) AS date) as transac_date,
+            AVG(DATEDIFF(minute, TRY_CONVERT(datetime,[inbound]), TRY_CONVERT(datetime,[outbound]))) as avg_minutes,
+            MIN(DATEDIFF(minute, TRY_CONVERT(datetime,[inbound]), TRY_CONVERT(datetime,[outbound]))) as min_minutes,
+            MAX(DATEDIFF(minute, TRY_CONVERT(datetime,[inbound]), TRY_CONVERT(datetime,[outbound]))) as max_minutes,
+            COUNT(*) as trips
+          FROM [FTSS].[dbo].[transac]
+          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= @startDate
+            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= @endDate
+            AND TRY_CONVERT(datetime,[inbound]) IS NOT NULL
+            AND TRY_CONVERT(datetime,[outbound]) IS NOT NULL
+            AND DATEDIFF(minute, TRY_CONVERT(datetime,[inbound]), TRY_CONVERT(datetime,[outbound])) BETWEEN 1 AND 1440
+            AND [deleted_at] IS NULL
+          GROUP BY CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) AS date)
+          ORDER BY transac_date ASC
+        `);
+        res.json(result.recordset || []);
+      } catch (err) { res.status(500).json({ error: 'Failed', details: err.message }); }
+    });
+
+    // ── Tare vs Net Weight Ratio ───────────────────────────────────────────
+    app.get('/api/analytics/weight-ratio', async (req, res) => {
+      try {
+        const startDateStr = req.query.startDate || (() => { const d = new Date(); d.setDate(d.getDate() - 90); return d.toISOString().split('T')[0]; })();
+        const endDateStr   = req.query.endDate   || new Date().toISOString().split('T')[0];
+        const [sy,sm,sd] = startDateStr.split('-').map(Number);
+        const [ey,em,ed] = endDateStr.split('-').map(Number);
+        const request = pool.request();
+        request.input('startDate', sql.Date, new Date(sy,sm-1,sd));
+        request.input('endDate',   sql.Date, new Date(ey,em-1,ed));
+        const result = await request.query(`
+          SELECT
+            CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) AS date) as transac_date,
+            SUM(TRY_CONVERT(DECIMAL(18,2),[gross_weight])) as gross,
+            SUM(TRY_CONVERT(DECIMAL(18,2),[tare_weight]))  as tare,
+            SUM(TRY_CONVERT(DECIMAL(18,2),[net_weight]))   as net,
+            COUNT(*) as trips
+          FROM [FTSS].[dbo].[transac]
+          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= @startDate
+            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= @endDate
+            AND TRY_CONVERT(DECIMAL(18,2),[gross_weight]) > 0
+            AND [deleted_at] IS NULL
+          GROUP BY CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) AS date)
+          ORDER BY transac_date ASC
+        `);
+        res.json(result.recordset || []);
+      } catch (err) { res.status(500).json({ error: 'Failed', details: err.message }); }
+    });
+
+    // ── New vs Returning Vehicles ──────────────────────────────────────────
+    app.get('/api/analytics/fleet-tracking', async (req, res) => {
+      try {
+        const startDateStr = req.query.startDate || (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 2); return d.toISOString().split('T')[0]; })();
+        const endDateStr   = req.query.endDate   || new Date().toISOString().split('T')[0];
+        const [sy,sm,sd] = startDateStr.split('-').map(Number);
+        const [ey,em,ed] = endDateStr.split('-').map(Number);
+        const request = pool.request();
+        request.input('startDate', sql.Date, new Date(sy,sm-1,sd));
+        request.input('endDate',   sql.Date, new Date(ey,em-1,ed));
+        const result = await request.query(`
+          WITH first_appearance AS (
+            SELECT
+              NULLIF(LTRIM(RTRIM([plate])),'') as plate,
+              MIN(CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) AS date)) as first_date
+            FROM [FTSS].[dbo].[transac]
+            WHERE [deleted_at] IS NULL AND NULLIF(LTRIM(RTRIM([plate])),'') IS NOT NULL
+            GROUP BY NULLIF(LTRIM(RTRIM([plate])),'')
+          ),
+          monthly AS (
+            SELECT
+              YEAR(CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) AS date)) as year,
+              MONTH(CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) AS date)) as month,
+              NULLIF(LTRIM(RTRIM([plate])),'') as plate
+            FROM [FTSS].[dbo].[transac]
+            WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= @startDate
+              AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= @endDate
+              AND [deleted_at] IS NULL
+              AND NULLIF(LTRIM(RTRIM([plate])),'') IS NOT NULL
+            GROUP BY
+              YEAR(CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) AS date)),
+              MONTH(CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) AS date)),
+              NULLIF(LTRIM(RTRIM([plate])),'')
+          )
+          SELECT
+            m.year, m.month,
+            COUNT(*) as total_vehicles,
+            SUM(CASE WHEN YEAR(fa.first_date) = m.year AND MONTH(fa.first_date) = m.month THEN 1 ELSE 0 END) as new_vehicles,
+            SUM(CASE WHEN YEAR(fa.first_date) < m.year OR (YEAR(fa.first_date) = m.year AND MONTH(fa.first_date) < m.month) THEN 1 ELSE 0 END) as returning_vehicles
+          FROM monthly m
+          JOIN first_appearance fa ON fa.plate = m.plate
+          GROUP BY m.year, m.month
+          ORDER BY m.year ASC, m.month ASC
+        `);
+        res.json(result.recordset || []);
+      } catch (err) { res.status(500).json({ error: 'Failed', details: err.message }); }
+    });
+
+    // =========================================================================
+    // DAILY WASTE MONITORING ENDPOINTS
+    // =========================================================================
+
+    // Substrate category expression (reused across queries)
+    const substrateCaseExpr = `
+      CASE
+        WHEN LOWER(ISNULL([product],'')) LIKE '%pulp%'
+          OR LOWER(ISNULL([product],'')) LIKE '%pineapple%'
+          OR LOWER(ISNULL([product],'')) LIKE '%whole fruit%'
+          OR LOWER(ISNULL([product],'')) LIKE '%fruit waste%'
+        THEN 'Pineapple'
+        WHEN LOWER(ISNULL([product],'')) LIKE '%sludge%'
+          OR LOWER(ISNULL([product],'')) LIKE '%digestate%'
+        THEN 'Sludge'
+        WHEN LOWER(ISNULL([product],'')) LIKE '%manure%'
+        THEN 'Manure'
+        ELSE 'Other'
+      END`;
+
+    const sourceCaseExpr = `
+      CASE
+        WHEN LOWER(ISNULL([product],'')) LIKE '%pulp%'
+          OR LOWER(ISNULL([product],'')) LIKE '%pineapple%'
+          OR LOWER(ISNULL([product],'')) LIKE '%whole fruit%'
+          OR LOWER(ISNULL([product],'')) LIKE '%fruit waste%'
+        THEN 'DOLE'
+        WHEN LOWER(ISNULL([product],'')) LIKE '%manure%'
+        THEN 'Local Farms'
+        WHEN LOWER(ISNULL([product],'')) LIKE '%sludge%'
+          OR LOWER(ISNULL([product],'')) LIKE '%digestate%'
+        THEN 'MWSS/LWUA'
+        ELSE 'Internal / Other'
+      END`;
+
+    const dateExpr = `COALESCE(CAST([date] AS date), TRY_CONVERT(date, transac_date), TRY_CONVERT(date, inbound))`;
+
+    // ── 1. Daily feedstock stacked bar data ──
+    app.get('/api/daily-waste/feedstock', async (req, res) => {
+      try {
+        const startDate = req.query.startDate || '2025-01-01';
+        const endDate   = req.query.endDate   || new Date().toISOString().split('T')[0];
+        const [sy, sm, sd] = startDate.split('-').map(Number);
+        const [ey, em, ed] = endDate.split('-').map(Number);
+        const result = await pool.request()
+          .input('sd', sql.Date, new Date(sy, sm - 1, sd))
+          .input('ed', sql.Date, new Date(ey, em - 1, ed))
+          .query(`
+            SELECT
+              CAST(${dateExpr} AS date) AS day,
+              ${substrateCaseExpr} AS substrate_category,
+              COUNT(*) AS trips,
+              SUM(TRY_CONVERT(DECIMAL(18,2), net_weight))   AS net_kg,
+              SUM(TRY_CONVERT(DECIMAL(18,2), gross_weight)) AS gross_kg
+            FROM [FTSS].[dbo].[transac]
+            WHERE [deleted_at] IS NULL
+              AND ${dateExpr} BETWEEN @sd AND @ed
+            GROUP BY
+              CAST(${dateExpr} AS date),
+              ${substrateCaseExpr}
+            ORDER BY day, substrate_category
+          `);
+        res.json(result.recordset || []);
+      } catch (err) {
+        console.error('GET /api/daily-waste/feedstock error:', err);
+        res.status(500).json({ error: 'Failed', details: err.message });
+      }
+    });
+
+    // ── 2. Waste source pie chart ──
+    app.get('/api/daily-waste/source-pie', async (req, res) => {
+      try {
+        const startDate = req.query.startDate || '2025-01-01';
+        const endDate   = req.query.endDate   || new Date().toISOString().split('T')[0];
+        const [sy, sm, sd] = startDate.split('-').map(Number);
+        const [ey, em, ed] = endDate.split('-').map(Number);
+        const result = await pool.request()
+          .input('sd', sql.Date, new Date(sy, sm - 1, sd))
+          .input('ed', sql.Date, new Date(ey, em - 1, ed))
+          .query(`
+            SELECT
+              ${sourceCaseExpr} AS source,
+              COUNT(*) AS trips,
+              SUM(TRY_CONVERT(DECIMAL(18,2), net_weight)) AS net_kg
+            FROM [FTSS].[dbo].[transac]
+            WHERE [deleted_at] IS NULL
+              AND ${dateExpr} BETWEEN @sd AND @ed
+            GROUP BY ${sourceCaseExpr}
+            ORDER BY net_kg DESC
+          `);
+        res.json(result.recordset || []);
+      } catch (err) {
+        console.error('GET /api/daily-waste/source-pie error:', err);
+        res.status(500).json({ error: 'Failed', details: err.message });
+      }
+    });
+
+    // ── 3. Daily totals (used for gauge + outage overlay) ──
+    app.get('/api/daily-waste/daily-totals', async (req, res) => {
+      try {
+        const startDate = req.query.startDate || '2025-01-01';
+        const endDate   = req.query.endDate   || new Date().toISOString().split('T')[0];
+        const [sy, sm, sd] = startDate.split('-').map(Number);
+        const [ey, em, ed] = endDate.split('-').map(Number);
+        const [totalsRes, outagesRes] = await Promise.all([
+          pool.request()
+            .input('sd', sql.Date, new Date(sy, sm - 1, sd))
+            .input('ed', sql.Date, new Date(ey, em - 1, ed))
+            .query(`
+              SELECT
+                CAST(${dateExpr} AS date) AS day,
+                COUNT(*) AS trips,
+                SUM(TRY_CONVERT(DECIMAL(18,2), net_weight))   AS net_kg,
+                SUM(TRY_CONVERT(DECIMAL(18,2), gross_weight)) AS gross_kg
+              FROM [FTSS].[dbo].[transac]
+              WHERE [deleted_at] IS NULL
+                AND ${dateExpr} BETWEEN @sd AND @ed
+              GROUP BY CAST(${dateExpr} AS date)
+              ORDER BY day
+            `),
+          // Try to load outages — gracefully return empty if table doesn't exist
+          pool.request()
+            .input('sd', sql.Date, new Date(sy, sm - 1, sd))
+            .input('ed', sql.Date, new Date(ey, em - 1, ed))
+            .query(`
+              IF OBJECT_ID('[FTSS].[dbo].[outages]', 'U') IS NOT NULL
+                SELECT outage_date AS day, plant_area, cause_category, duration_hours, severity
+                FROM [FTSS].[dbo].[outages]
+                WHERE [deleted_at] IS NULL AND outage_date BETWEEN @sd AND @ed
+                ORDER BY outage_date
+              ELSE
+                SELECT CAST(NULL AS date) AS day, CAST(NULL AS nvarchar(100)) AS plant_area,
+                       CAST(NULL AS nvarchar(100)) AS cause_category,
+                       CAST(NULL AS decimal(10,2)) AS duration_hours,
+                       CAST(NULL AS nvarchar(20)) AS severity
+                WHERE 1=0
+            `),
+        ]);
+        res.json({
+          totals:  totalsRes.recordset  || [],
+          outages: outagesRes.recordset || [],
+        });
+      } catch (err) {
+        console.error('GET /api/daily-waste/daily-totals error:', err);
+        res.status(500).json({ error: 'Failed', details: err.message });
+      }
+    });
+
+    // ── 4. Drill-down: raw transactions for a date range + substrate ──
+    app.get('/api/daily-waste/drill', async (req, res) => {
+      try {
+        const startDate = req.query.startDate || '2025-01-01';
+        const endDate   = req.query.endDate   || new Date().toISOString().split('T')[0];
+        const substrate = req.query.substrate || null;
+        const [sy, sm, sd] = startDate.split('-').map(Number);
+        const [ey, em, ed] = endDate.split('-').map(Number);
+        const request = pool.request()
+          .input('sd', sql.Date, new Date(sy, sm - 1, sd))
+          .input('ed', sql.Date, new Date(ey, em - 1, ed));
+        let subWhere = '';
+        if (substrate && substrate !== 'All') {
+          // Build substrate WHERE from category
+          const catMap = {
+            Pineapple: `(LOWER(ISNULL([product],'')) LIKE '%pulp%' OR LOWER(ISNULL([product],'')) LIKE '%pineapple%' OR LOWER(ISNULL([product],'')) LIKE '%whole fruit%' OR LOWER(ISNULL([product],'')) LIKE '%fruit waste%')`,
+            Sludge:    `(LOWER(ISNULL([product],'')) LIKE '%sludge%' OR LOWER(ISNULL([product],'')) LIKE '%digestate%')`,
+            Manure:    `LOWER(ISNULL([product],'')) LIKE '%manure%'`,
+          };
+          subWhere = catMap[substrate] ? `AND ${catMap[substrate]}` : '';
+        }
+        const result = await request.query(`
+          SELECT TOP 500
+            id,
+            CAST(${dateExpr} AS date) AS day,
+            [plate] AS plate_no, driver, [product],
+            ${substrateCaseExpr} AS substrate_category,
+            ${sourceCaseExpr}    AS source,
+            TRY_CONVERT(DECIMAL(18,2), net_weight)   AS net_kg,
+            TRY_CONVERT(DECIMAL(18,2), gross_weight) AS gross_kg,
+            TRY_CONVERT(DECIMAL(18,2), tare_weight)  AS tare_kg,
+            [status]
+          FROM [FTSS].[dbo].[transac]
+          WHERE [deleted_at] IS NULL
+            AND ${dateExpr} BETWEEN @sd AND @ed
+            ${subWhere}
+          ORDER BY ${dateExpr}, id
+        `);
+        res.json(result.recordset || []);
+      } catch (err) {
+        console.error('GET /api/daily-waste/drill error:', err);
+        res.status(500).json({ error: 'Failed', details: err.message });
+      }
+    });
+
+    // =========================================================================
+    // ===== END ANALYTICS ENDPOINTS =====
 
     // Create HTTP server and initialize Socket.IO for real-time notifications
     const httpServer = createServer(app);

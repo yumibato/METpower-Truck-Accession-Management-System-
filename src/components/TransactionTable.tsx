@@ -1217,8 +1217,12 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
         pages.push('...');
         pages.push(totalPages);
       } else if (page >= totalPages - 2) {
-        pages.push('...');
-        for (let i = totalPages - 3; i <= totalPages; i++) {
+        // Avoid duplicate page 1 by starting from max(2, totalPages - 3)
+        const startPage = Math.max(2, totalPages - 3);
+        if (startPage > 2) {
+          pages.push('...');
+        }
+        for (let i = startPage; i <= totalPages; i++) {
           pages.push(i);
         }
       } else {

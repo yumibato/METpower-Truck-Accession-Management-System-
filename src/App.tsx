@@ -3,6 +3,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import TrashBin from './components/TrashBin';
+import TransactionsPage from './components/pages/TransactionsPage';
+import ActivityLogPage from './components/pages/ActivityLogPage';
+import AnalyticsPage from './components/pages/AnalyticsPage';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
@@ -44,6 +47,30 @@ function App() {
                       <TrashBin />
                     </ProtectedRoute>
                   } 
+                />
+                <Route
+                  path="/transactions"
+                  element={
+                    <ProtectedRoute>
+                      <TransactionsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/activity-log"
+                  element={
+                    <ProtectedRoute>
+                      <ActivityLogPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/analytics"
+                  element={
+                    <ProtectedRoute>
+                      <AnalyticsPage />
+                    </ProtectedRoute>
+                  }
                 />
                 <Route path="/" element={<Navigate to="/dashboard" />} />
               </Routes>
