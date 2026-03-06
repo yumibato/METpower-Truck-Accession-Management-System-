@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useCallback, useRef } from 'react';
 import Header from './Header';
 import { transacApi } from '../services/transacApi';
-import { BarChart3, Scale, TrendingUp, Package, Truck, CalendarDays, Layers, Minus, RefreshCw, CheckCircle, XCircle, AlertCircle, Sparkles } from 'lucide-react';
+import { BarChart3, Scale, TrendingUp, Package, Truck, CalendarDays, Layers, Minus, RefreshCw, CheckCircle, XCircle, AlertCircle, Box } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 const todayStr = () => new Date().toISOString().split('T')[0];
@@ -91,16 +91,18 @@ function buildSummary(
 
 function statusColor(s?: string) {
   const sl = (s || '').toLowerCase();
-  if (sl.includes('done') || sl.includes('complete') || sl.includes('approved')) return 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20';
+  if (sl === 'valid' || sl.includes('done') || sl.includes('complete') || sl.includes('approved')) return 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20';
   if (sl.includes('pending') || sl.includes('process')) return 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20';
   if (sl.includes('cancel') || sl.includes('reject')) return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20';
-  return 'text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-midnight-700';
+  if (sl === 'void') return 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/40';
+  return 'text-gray-600 dark:text-enterprise-muted bg-gray-100 dark:bg-midnight-700';
 }
 
 function statusIcon(s?: string) {
   const sl = (s || '').toLowerCase();
-  if (sl.includes('done') || sl.includes('complete') || sl.includes('approved')) return <CheckCircle className="w-3.5 h-3.5" />;
+  if (sl === 'valid' || sl.includes('done') || sl.includes('complete') || sl.includes('approved')) return <CheckCircle className="w-3.5 h-3.5" />;
   if (sl.includes('cancel') || sl.includes('reject')) return <XCircle className="w-3.5 h-3.5" />;
+  if (sl === 'void') return <AlertCircle className="w-3.5 h-3.5" />;
   return <AlertCircle className="w-3.5 h-3.5" />;
 }
 
@@ -110,6 +112,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
   const [refreshing, setRefreshing] = useState(false);
+  const [aiSummary, setAiSummary] = useState<string[] | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
   const isMounted = useRef(true);
   
   const fetchSummary = useCallback(async (silent = false) => {
@@ -126,7 +130,7 @@ export default function Dashboard() {
 
       const todayStatuses: { status: string; count: number }[] = Array.isArray(statusRes) ? statusRes : [];
 
-      setKpi({
+      const newKpi: KpiData = {
         totalRecords:     weightRes.totalRecords     ?? listRes.total ?? 0,
         totalGrossWeight: weightRes.totalGrossWeight ?? null,
         totalNetWeight:   weightRes.totalNetWeight   ?? null,
@@ -137,9 +141,24 @@ export default function Dashboard() {
         todayTrips:       weightRes.todayTrips       ?? 0,
         weekTrips:        weightRes.weekTrips        ?? 0,
         todayStatuses,
-      });
+      };
+      setKpi(newKpi);
       setRecent(listRes.rows ?? []);
       setLastRefreshed(new Date());
+      // Fetch AI summary (non-blocking — failures fall back to rule-based)
+      if (!silent) {
+        setAiLoading(true);
+        fetch(`${API_URL}/ai-summary`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(newKpi),
+        })
+          .then(r => r.ok ? r.json() : null)
+          .then(data => { if (isMounted.current && data?.sentences?.length) setAiSummary(data.sentences); })
+          .catch(() => {})
+          .finally(() => { if (isMounted.current) setAiLoading(false); });
+      }
     } catch (e) {
       console.error('Dashboard summary error:', e);
     } finally {
@@ -150,8 +169,16 @@ export default function Dashboard() {
   useEffect(() => {
     isMounted.current = true;
     fetchSummary();
-    const iv = setInterval(() => fetchSummary(true), 30000);
+    // Fallback polling every 15 s in case socket is unavailable
+    const iv = setInterval(() => fetchSummary(true), 15000);
     return () => { isMounted.current = false; clearInterval(iv); };
+  }, [fetchSummary]);
+
+  // Immediate refresh whenever any DB change fires via socket
+  useEffect(() => {
+    const onDataChanged = () => { if (isMounted.current) fetchSummary(true); };
+    window.addEventListener('data-changed', onDataChanged);
+    return () => window.removeEventListener('data-changed', onDataChanged);
   }, [fetchSummary]);
 
   const handleRefresh = async () => {
@@ -209,9 +236,9 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-midnight-950">
+    <div className="min-h-screen">
       <Header />
-      <main className="w-full py-6 px-4 sm:px-6 lg:px-8 max-w-screen-2xl mx-auto space-y-5">
+      <main className="w-full py-6 px-4 sm:px-6 lg:px-8 space-y-5">
 
         {/* ── Page header ── */}
         <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 shadow-lg">
@@ -264,8 +291,8 @@ export default function Dashboard() {
                 </div>
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Loading dashboard…</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Fetching live data from server</p>
+                <p className="text-sm font-semibold text-gray-700 dark:text-enterprise-silver">Loading dashboard…</p>
+                <p className="text-xs text-gray-400 dark:text-enterprise-muted mt-0.5">Fetching live data from server</p>
               </div>
             </div>
           </div>
@@ -281,16 +308,16 @@ export default function Dashboard() {
               ].map(c => {
                 const Icon = c.icon;
                 return (
-                  <div key={c.label} className="group bg-white dark:bg-midnight-900 rounded-2xl border border-gray-100 dark:border-midnight-700 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 overflow-hidden">
+                  <div key={c.label} className="group glass-card rounded-2xl hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 overflow-hidden">
                     <div className="p-5">
                       <div className="flex items-start justify-between mb-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 leading-tight">{c.label}</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-enterprise-muted leading-tight">{c.label}</p>
                         <div className={`p-2 rounded-xl ${c.bg} shrink-0`}>
                           <Icon className="w-4 h-4" style={{ color: c.color }} />
                         </div>
                       </div>
-                      <p className="text-3xl font-extrabold text-gray-900 dark:text-white tabular-nums leading-none">{c.value}</p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">{c.sub}</p>
+                      <p className="text-3xl font-extrabold text-gray-900 dark:text-enterprise-text tabular-nums leading-none">{c.value}</p>
+                      <p className="text-xs text-gray-400 dark:text-enterprise-muted mt-2">{c.sub}</p>
                     </div>
                     <div className="h-0.5 w-full" style={{ background: `linear-gradient(to right, ${c.color}60, transparent)` }} />
                   </div>
@@ -308,10 +335,10 @@ export default function Dashboard() {
               ].map(c => {
                 const Icon = c.icon;
                 return (
-                  <div key={c.label} className="group bg-white dark:bg-midnight-900 rounded-2xl border border-gray-100 dark:border-midnight-700 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 overflow-hidden">
+                  <div key={c.label} className="group glass-card rounded-2xl hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 overflow-hidden">
                     <div className="p-5">
                       <div className="flex items-start justify-between mb-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 leading-tight flex-1 pr-2">{c.label}</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-enterprise-muted leading-tight flex-1 pr-2">{c.label}</p>
                         {c.ringPct !== null ? (
                           <div className="relative shrink-0">
                             <Ring pct={c.ringPct} color={c.color} size={48} />
@@ -325,8 +352,8 @@ export default function Dashboard() {
                           </div>
                         )}
                       </div>
-                      <p className="text-2xl font-extrabold text-gray-900 dark:text-white tabular-nums leading-none">{c.value}</p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">{c.sub}</p>
+                      <p className="text-2xl font-extrabold text-gray-900 dark:text-enterprise-text tabular-nums leading-none">{c.value}</p>
+                      <p className="text-xs text-gray-400 dark:text-enterprise-muted mt-2">{c.sub}</p>
                     </div>
                     <div className="h-0.5 w-full" style={{ background: `linear-gradient(to right, ${c.color}60, transparent)` }} />
                   </div>
@@ -339,16 +366,16 @@ export default function Dashboard() {
 
               {/* Weight Composition */}
               {(kpi.totalGrossWeight ?? 0) > 0 && (
-                <div className="xl:col-span-2 bg-white dark:bg-midnight-900 rounded-2xl border border-gray-100 dark:border-midnight-700 shadow-sm p-5 flex flex-col">
+                <div className="xl:col-span-2 glass-card rounded-2xl p-5 flex flex-col">
                   <div className="flex items-center gap-2 mb-5">
                     <div className="p-1.5 rounded-lg bg-gray-100 dark:bg-midnight-700">
-                      <Scale className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      <Scale className="w-4 h-4 text-gray-500 dark:text-enterprise-muted" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-none">Weight Composition</h3>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Net + Tare = Gross</p>
+                      <h3 className="text-sm font-bold text-gray-800 dark:text-enterprise-silver leading-none">Weight Composition</h3>
+                      <p className="text-xs text-gray-400 dark:text-enterprise-muted mt-0.5">Net + Tare = Gross</p>
                     </div>
-                    <span className="ml-auto text-sm font-bold text-gray-900 dark:text-white">{fmtTotalWeight(kpi.totalGrossWeight)}</span>
+                    <span className="ml-auto text-sm font-bold text-gray-900 dark:text-enterprise-text">{fmtTotalWeight(kpi.totalGrossWeight)}</span>
                   </div>
 
                   {/* Segmented bar */}
@@ -372,11 +399,11 @@ export default function Dashboard() {
                         <div className="flex items-center justify-between mb-1.5">
                           <div className="flex items-center gap-2">
                             <div className={`w-2.5 h-2.5 rounded-sm bg-gradient-to-br ${seg.grad}`} />
-                            <span className="text-xs font-medium text-gray-600 dark:text-gray-300">{seg.label}</span>
+                            <span className="text-xs font-medium text-gray-600 dark:text-enterprise-silver">{seg.label}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-gray-900 dark:text-white">{seg.value}</span>
-                            <span className="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums">{seg.pct.toFixed(1)}%</span>
+                            <span className="text-xs font-bold text-gray-900 dark:text-enterprise-text">{seg.value}</span>
+                            <span className="text-[10px] text-gray-400 dark:text-enterprise-muted tabular-nums">{seg.pct.toFixed(1)}%</span>
                           </div>
                         </div>
                         <div className="w-full bg-gray-100 dark:bg-midnight-700 rounded-full h-1.5 overflow-hidden">
@@ -390,27 +417,41 @@ export default function Dashboard() {
               )}
 
               {/* Smart Summary */}
-              <div className={`${(kpi.totalGrossWeight ?? 0) > 0 ? 'xl:col-span-3' : 'xl:col-span-5'} rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-midnight-700`}>
+              <div className={`${(kpi.totalGrossWeight ?? 0) > 0 ? 'xl:col-span-3' : 'xl:col-span-5'} glass-card rounded-2xl overflow-hidden`}>
                 <div className="px-5 py-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 flex items-center gap-3">
                   <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm shrink-0">
-                    <Sparkles className="w-4 h-4 text-white" />
+                    <Box className="w-4 h-4 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-white leading-none">Smart Summary</p>
-                    <p className="text-xs text-blue-100/80 mt-0.5">AI-style insights from live data</p>
+                    <p className="text-xs text-blue-100/80 mt-0.5">
+                      {aiSummary ? 'AI-generated · Cube AI' : aiLoading ? 'Generating with AI...' : 'Rule-based insights'}
+                    </p>
                   </div>
-                  <span className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    Live
-                  </span>
+                  {aiLoading ? (
+                    <span className="flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-white/10 border border-white/20 text-blue-100">
+                      <span className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                      AI
+                    </span>
+                  ) : aiSummary ? (
+                    <span className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-violet-500/20 border border-violet-400/30 text-violet-200">
+                      <Box className="w-3 h-3" />
+                      AI
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Live
+                    </span>
+                  )}
                 </div>
-                <div className="bg-white dark:bg-midnight-900 px-5 py-4 space-y-3 h-full">
-                  {buildSummary(kpi, fmtTotalWeight, fmtPct, fmtAvgWeight).map((sentence, i) => (
+                <div className="px-5 py-4 space-y-3 h-full">
+                  {(aiSummary ?? buildSummary(kpi, fmtTotalWeight, fmtPct, fmtAvgWeight)).map((sentence, i) => (
                     <div key={i} className="flex items-start gap-3 group/item">
                       <div className="mt-1.5 w-5 h-5 rounded-full bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800/50 flex items-center justify-center shrink-0">
                         <span className="text-[9px] font-bold text-blue-500">{i + 1}</span>
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{sentence}</p>
+                      <p className="text-sm text-gray-600 dark:text-enterprise-silver leading-relaxed">{sentence}</p>
                     </div>
                   ))}
                 </div>
@@ -421,11 +462,11 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
 
               {/* Today's Status */}
-              <div className="bg-white dark:bg-midnight-900 rounded-2xl border border-gray-100 dark:border-midnight-700 shadow-sm overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100 dark:border-midnight-700 flex items-center gap-2">
+              <div className="glass-card rounded-2xl overflow-hidden">
+                <div className="px-5 py-4 border-b border-black/5 dark:border-white/8 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                  <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">Today's Status</h3>
-                  <span className="ml-auto px-2.5 py-0.5 rounded-full bg-gray-100 dark:bg-midnight-700 text-xs font-semibold text-gray-500 dark:text-gray-400">
+                  <h3 className="text-sm font-bold text-gray-800 dark:text-enterprise-silver">Today's Status</h3>
+                  <span className="ml-auto px-2.5 py-0.5 rounded-full bg-gray-100 dark:bg-midnight-700 text-xs font-semibold text-gray-500 dark:text-enterprise-muted">
                     {kpi.todayTrips} trip{kpi.todayTrips !== 1 ? 's' : ''}
                   </span>
                 </div>
@@ -433,11 +474,11 @@ export default function Dashboard() {
                   {kpi.todayStatuses.length === 0 ? (
                     <div className="py-10 flex flex-col items-center text-center gap-3">
                       <div className="w-14 h-14 rounded-full bg-gray-50 dark:bg-midnight-800 flex items-center justify-center">
-                        <CalendarDays className="w-7 h-7 text-gray-200 dark:text-gray-600" />
+                        <CalendarDays className="w-7 h-7 text-gray-200 dark:text-enterprise-muted" />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-gray-400 dark:text-gray-500">No transactions today</p>
-                        <p className="text-xs text-gray-300 dark:text-gray-600 mt-0.5">
+                        <p className="text-sm font-semibold text-gray-400 dark:text-enterprise-muted">No transactions today</p>
+                        <p className="text-xs text-gray-300 dark:text-enterprise-muted mt-0.5">
                           {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long' })}
                         </p>
                       </div>
@@ -454,8 +495,8 @@ export default function Dashboard() {
                                 <span className="truncate max-w-[100px]">{s.status}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <span className="text-[10px] text-gray-400 dark:text-gray-500">{pct}%</span>
-                                <span className="text-sm font-bold text-gray-800 dark:text-white w-5 text-right">{s.count}</span>
+                                <span className="text-[10px] text-gray-400 dark:text-enterprise-muted">{pct}%</span>
+                                <span className="text-sm font-bold text-gray-800 dark:text-enterprise-text w-5 text-right">{s.count}</span>
                               </div>
                             </div>
                             <div className="w-full bg-gray-100 dark:bg-midnight-700 rounded-full h-1.5 overflow-hidden">
@@ -471,32 +512,32 @@ export default function Dashboard() {
               </div>
 
               {/* Recent Transactions */}
-              <div className="xl:col-span-2 bg-white dark:bg-midnight-900 rounded-2xl border border-gray-100 dark:border-midnight-700 shadow-sm overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100 dark:border-midnight-700 flex items-center justify-between">
+              <div className="xl:col-span-2 glass-card rounded-2xl overflow-hidden">
+                <div className="px-5 py-4 border-b border-black/5 dark:border-white/8 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/20">
                       <Truck className="w-4 h-4 text-blue-500" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-none">Recent Transactions</h3>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Last 5 records</p>
+                      <h3 className="text-sm font-bold text-gray-800 dark:text-enterprise-silver leading-none">Recent Transactions</h3>
+                      <p className="text-xs text-gray-400 dark:text-enterprise-muted mt-0.5">Last 5 records</p>
                     </div>
                   </div>
-                  <span className="hidden sm:flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full bg-gray-100 dark:bg-midnight-700 text-gray-400 dark:text-gray-500">
+                  <span className="hidden sm:flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full bg-gray-100 dark:bg-midnight-700 text-gray-400 dark:text-enterprise-muted">
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
                     Live feed
                   </span>
                 </div>
                 {recent.length === 0 ? (
                   <div className="py-14 text-center">
-                    <Truck className="w-10 h-10 text-gray-200 dark:text-gray-700 mx-auto mb-3" />
-                    <p className="text-sm font-medium text-gray-400 dark:text-gray-500">No records found</p>
+                    <Truck className="w-10 h-10 text-gray-200 dark:text-enterprise-muted mx-auto mb-3" />
+                    <p className="text-sm font-medium text-gray-400 dark:text-enterprise-muted">No records found</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
-                        <tr className="bg-gray-50 dark:bg-midnight-800/60 text-left text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+                        <tr className="bg-gray-50 dark:bg-midnight-800/60 text-left text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-enterprise-muted">
                           <th className="px-5 py-3 whitespace-nowrap">ID</th>
                           <th className="px-4 py-3 whitespace-nowrap">Plate</th>
                           <th className="px-4 py-3 whitespace-nowrap">Driver</th>
@@ -513,13 +554,13 @@ export default function Dashboard() {
                             <td className="px-5 py-3 whitespace-nowrap">
                               <span className="font-mono text-xs font-semibold text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded">#{row.id}</span>
                             </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-800 dark:text-gray-100">{row.plate_no || '—'}</td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{row.driver || '—'}</td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{row.product || '—'}</td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-700 dark:text-gray-200 tabular-nums">
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-800 dark:text-enterprise-silver">{row.plate_no || '—'}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-enterprise-silver">{row.driver || '—'}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-enterprise-muted">{row.product || '—'}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-700 dark:text-enterprise-silver tabular-nums">
                               {row.gross_weight ? `${parseFloat(row.gross_weight).toLocaleString()} kg` : '—'}
                             </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-400 dark:text-gray-500 tabular-nums">{fmtDate(getRowDate(row))}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-400 dark:text-enterprise-muted tabular-nums">{fmtDate(getRowDate(row))}</td>
                             <td className="px-4 py-3 whitespace-nowrap">
                               <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${statusColor(row.status)}`}>
                                 {statusIcon(row.status)}

@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
 } from 'recharts';
-import { Calendar, RotateCcw } from 'lucide-react';
+import { Calendar, RotateCcw, Bot } from 'lucide-react';
 
 interface VolumeData {
   transac_date: string;
@@ -153,9 +153,18 @@ export default function TransactionVolume({ onViewSource: _onViewSource }: Trans
 
       {/* Chart */}
       <div className="bg-white dark:bg-midnight-900 rounded-xl border border-gray-200 dark:border-midnight-600 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 dark:border-midnight-700">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Daily Transaction Count</h3>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Number of weigh-ins recorded per day</p>
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-midnight-700 flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Daily Transaction Count</h3>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Number of weigh-ins recorded per day</p>
+          </div>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('explain-chart', { detail: { message: 'Explain the Transaction Volume chart. What does it show, what do tall vs short bars mean, and what patterns should I look for in how busy the weighbridge is each day?' } }))}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800/50 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors shrink-0"
+            title="Ask AI to explain this chart"
+          >
+            <Bot className="w-3.5 h-3.5" /> Explain
+          </button>
         </div>
         {loading ? (
           <div className="h-64 flex flex-col items-center justify-center gap-3">

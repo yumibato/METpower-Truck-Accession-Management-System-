@@ -7,6 +7,7 @@ import { createServer } from 'http';
 import { setupTrashRoutes } from './trash-routes.js';
 import { logAuditEntry, extractUsername, extractUserId } from './audit-utils.js';
 import { initializeSocketIO, notifyActivity } from './socket-io-server.js';
+import { startDatabaseObserver } from './db-observer.js';
 
 dotenv.config();
 
@@ -1279,8 +1280,8 @@ sql.connect(config)
         // Parse date strings safely to avoid timezone issues  
         const [sy, sm, sd] = startDateStr.split('-').map(Number);
         const [ey, em, ed] = endDateStr.split('-').map(Number);
-        request.input('startDate', sql.Date, new Date(sy, sm - 1, sd));
-        request.input('endDate', sql.Date, new Date(ey, em - 1, ed));
+        request.input('startDate', sql.Date, new Date(Date.UTC(sy, sm - 1, sd)));
+        request.input('endDate', sql.Date, new Date(Date.UTC(ey, em - 1, ed)));
 
         const query = `
           SELECT 
@@ -1383,8 +1384,8 @@ sql.connect(config)
         const [sy, sm, sd] = startDateStr.split('-').map(Number);
         const [ey, em, ed] = endDateStr.split('-').map(Number);
         const request = pool.request();
-        request.input('startDate', sql.Date, new Date(sy, sm - 1, sd));
-        request.input('endDate', sql.Date, new Date(ey, em - 1, ed));
+        request.input('startDate', sql.Date, new Date(Date.UTC(sy, sm - 1, sd)));
+        request.input('endDate', sql.Date, new Date(Date.UTC(ey, em - 1, ed)));
         const query = `
           SELECT
             CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) AS date) as transac_date,
@@ -1414,8 +1415,8 @@ sql.connect(config)
         const [sy, sm, sd] = startDateStr.split('-').map(Number);
         const [ey, em, ed] = endDateStr.split('-').map(Number);
         const request = pool.request();
-        request.input('startDate', sql.Date, new Date(sy, sm - 1, sd));
-        request.input('endDate', sql.Date, new Date(ey, em - 1, ed));
+        request.input('startDate', sql.Date, new Date(Date.UTC(sy, sm - 1, sd)));
+        request.input('endDate', sql.Date, new Date(Date.UTC(ey, em - 1, ed)));
         const query = `
           SELECT
             ISNULL(NULLIF(LTRIM(RTRIM([product])), ''), 'Unknown') as product,
@@ -1444,8 +1445,8 @@ sql.connect(config)
         const [sy,sm,sd] = startDateStr.split('-').map(Number);
         const [ey,em,ed] = endDateStr.split('-').map(Number);
         const request = pool.request();
-        request.input('startDate', sql.Date, new Date(sy,sm-1,sd));
-        request.input('endDate',   sql.Date, new Date(ey,em-1,ed));
+        request.input('startDate', sql.Date, new Date(Date.UTC(sy,sm-1,sd)));
+        request.input('endDate',   sql.Date, new Date(Date.UTC(ey,em-1,ed)));
         const result = await request.query(`
           SELECT
             ISNULL(NULLIF(LTRIM(RTRIM([status])),''),'Unknown') as status,
@@ -1470,8 +1471,8 @@ sql.connect(config)
         const [sy,sm,sd] = startDateStr.split('-').map(Number);
         const [ey,em,ed] = endDateStr.split('-').map(Number);
         const request = pool.request();
-        request.input('startDate', sql.Date, new Date(sy,sm-1,sd));
-        request.input('endDate',   sql.Date, new Date(ey,em-1,ed));
+        request.input('startDate', sql.Date, new Date(Date.UTC(sy,sm-1,sd)));
+        request.input('endDate',   sql.Date, new Date(Date.UTC(ey,em-1,ed)));
         request.input('limit', sql.Int, limit);
         const result = await request.query(`
           SELECT TOP (@limit)
@@ -1498,8 +1499,8 @@ sql.connect(config)
         const [sy,sm,sd] = startDateStr.split('-').map(Number);
         const [ey,em,ed] = endDateStr.split('-').map(Number);
         const request = pool.request();
-        request.input('startDate', sql.Date, new Date(sy,sm-1,sd));
-        request.input('endDate',   sql.Date, new Date(ey,em-1,ed));
+        request.input('startDate', sql.Date, new Date(Date.UTC(sy,sm-1,sd)));
+        request.input('endDate',   sql.Date, new Date(Date.UTC(ey,em-1,ed)));
         request.input('limit', sql.Int, limit);
         const result = await request.query(`
           SELECT TOP (@limit)
@@ -1525,8 +1526,8 @@ sql.connect(config)
         const [sy,sm,sd] = startDateStr.split('-').map(Number);
         const [ey,em,ed] = endDateStr.split('-').map(Number);
         const request = pool.request();
-        request.input('startDate', sql.Date, new Date(sy,sm-1,sd));
-        request.input('endDate',   sql.Date, new Date(ey,em-1,ed));
+        request.input('startDate', sql.Date, new Date(Date.UTC(sy,sm-1,sd)));
+        request.input('endDate',   sql.Date, new Date(Date.UTC(ey,em-1,ed)));
         const result = await request.query(`
           SELECT
             DATEPART(weekday, COALESCE(TRY_CONVERT(datetime,[inbound]), TRY_CONVERT(datetime,[transac_date]),
@@ -1557,8 +1558,8 @@ sql.connect(config)
         const [sy,sm,sd] = startDateStr.split('-').map(Number);
         const [ey,em,ed] = endDateStr.split('-').map(Number);
         const request = pool.request();
-        request.input('startDate', sql.Date, new Date(sy,sm-1,sd));
-        request.input('endDate',   sql.Date, new Date(ey,em-1,ed));
+        request.input('startDate', sql.Date, new Date(Date.UTC(sy,sm-1,sd)));
+        request.input('endDate',   sql.Date, new Date(Date.UTC(ey,em-1,ed)));
         const result = await request.query(`
           SELECT
             YEAR(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound]))) as year,
@@ -1586,8 +1587,8 @@ sql.connect(config)
         const [sy,sm,sd] = startDateStr.split('-').map(Number);
         const [ey,em,ed] = endDateStr.split('-').map(Number);
         const request = pool.request();
-        request.input('startDate', sql.Date, new Date(sy,sm-1,sd));
-        request.input('endDate',   sql.Date, new Date(ey,em-1,ed));
+        request.input('startDate', sql.Date, new Date(Date.UTC(sy,sm-1,sd)));
+        request.input('endDate',   sql.Date, new Date(Date.UTC(ey,em-1,ed)));
         const result = await request.query(`
           SELECT
             CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) AS date) as transac_date,
@@ -1617,8 +1618,8 @@ sql.connect(config)
         const [sy,sm,sd] = startDateStr.split('-').map(Number);
         const [ey,em,ed] = endDateStr.split('-').map(Number);
         const request = pool.request();
-        request.input('startDate', sql.Date, new Date(sy,sm-1,sd));
-        request.input('endDate',   sql.Date, new Date(ey,em-1,ed));
+        request.input('startDate', sql.Date, new Date(Date.UTC(sy,sm-1,sd)));
+        request.input('endDate',   sql.Date, new Date(Date.UTC(ey,em-1,ed)));
         const result = await request.query(`
           SELECT
             CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) AS date) as transac_date,
@@ -1646,8 +1647,8 @@ sql.connect(config)
         const [sy,sm,sd] = startDateStr.split('-').map(Number);
         const [ey,em,ed] = endDateStr.split('-').map(Number);
         const request = pool.request();
-        request.input('startDate', sql.Date, new Date(sy,sm-1,sd));
-        request.input('endDate',   sql.Date, new Date(ey,em-1,ed));
+        request.input('startDate', sql.Date, new Date(Date.UTC(sy,sm-1,sd)));
+        request.input('endDate',   sql.Date, new Date(Date.UTC(ey,em-1,ed)));
         const result = await request.query(`
           WITH first_appearance AS (
             SELECT
@@ -1731,8 +1732,8 @@ sql.connect(config)
         const [sy, sm, sd] = startDate.split('-').map(Number);
         const [ey, em, ed] = endDate.split('-').map(Number);
         const result = await pool.request()
-          .input('sd', sql.Date, new Date(sy, sm - 1, sd))
-          .input('ed', sql.Date, new Date(ey, em - 1, ed))
+          .input('sd', sql.Date, new Date(Date.UTC(sy, sm - 1, sd)))
+          .input('ed', sql.Date, new Date(Date.UTC(ey, em - 1, ed)))
           .query(`
             SELECT
               CAST(${dateExpr} AS date) AS day,
@@ -1763,8 +1764,8 @@ sql.connect(config)
         const [sy, sm, sd] = startDate.split('-').map(Number);
         const [ey, em, ed] = endDate.split('-').map(Number);
         const result = await pool.request()
-          .input('sd', sql.Date, new Date(sy, sm - 1, sd))
-          .input('ed', sql.Date, new Date(ey, em - 1, ed))
+          .input('sd', sql.Date, new Date(Date.UTC(sy, sm - 1, sd)))
+          .input('ed', sql.Date, new Date(Date.UTC(ey, em - 1, ed)))
           .query(`
             SELECT
               ${sourceCaseExpr} AS source,
@@ -1792,8 +1793,8 @@ sql.connect(config)
         const [ey, em, ed] = endDate.split('-').map(Number);
         const [totalsRes, outagesRes] = await Promise.all([
           pool.request()
-            .input('sd', sql.Date, new Date(sy, sm - 1, sd))
-            .input('ed', sql.Date, new Date(ey, em - 1, ed))
+            .input('sd', sql.Date, new Date(Date.UTC(sy, sm - 1, sd)))
+            .input('ed', sql.Date, new Date(Date.UTC(ey, em - 1, ed)))
             .query(`
               SELECT
                 CAST(${dateExpr} AS date) AS day,
@@ -1808,8 +1809,8 @@ sql.connect(config)
             `),
           // Try to load outages — gracefully return empty if table doesn't exist
           pool.request()
-            .input('sd', sql.Date, new Date(sy, sm - 1, sd))
-            .input('ed', sql.Date, new Date(ey, em - 1, ed))
+            .input('sd', sql.Date, new Date(Date.UTC(sy, sm - 1, sd)))
+            .input('ed', sql.Date, new Date(Date.UTC(ey, em - 1, ed)))
             .query(`
               IF OBJECT_ID('[FTSS].[dbo].[outages]', 'U') IS NOT NULL
                 SELECT outage_date AS day, plant_area, cause_category, duration_hours, severity
@@ -1843,8 +1844,8 @@ sql.connect(config)
         const [sy, sm, sd] = startDate.split('-').map(Number);
         const [ey, em, ed] = endDate.split('-').map(Number);
         const request = pool.request()
-          .input('sd', sql.Date, new Date(sy, sm - 1, sd))
-          .input('ed', sql.Date, new Date(ey, em - 1, ed));
+          .input('sd', sql.Date, new Date(Date.UTC(sy, sm - 1, sd)))
+          .input('ed', sql.Date, new Date(Date.UTC(ey, em - 1, ed)));
         let subWhere = '';
         if (substrate && substrate !== 'All') {
           // Build substrate WHERE from category
@@ -1880,6 +1881,317 @@ sql.connect(config)
     });
 
     // =========================================================================
+    // ===== AI CHAT HELPERS =====
+
+    function extractDateRange(msgs) {
+      const lastUserMsg = [...msgs].reverse().find(m => m.role === 'user')?.content?.toLowerCase() || '';
+      const months = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+      const now = new Date();
+      let startDate = null, endDate = null, label = null;
+      for (let i = 0; i < months.length; i++) {
+        if (lastUserMsg.includes(months[i])) {
+          const yearMatch = lastUserMsg.match(/20\d{2}/);
+          const year = yearMatch ? parseInt(yearMatch[0]) : now.getFullYear();
+          startDate = new Date(year, i, 1);
+          endDate = new Date(year, i + 1, 0);
+          label = months[i].charAt(0).toUpperCase() + months[i].slice(1) + ' ' + year;
+          break;
+        }
+      }
+      if (!startDate) {
+        if (lastUserMsg.includes('today')) {
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          endDate   = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          label = 'Today (' + now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) + ')';
+        } else if (lastUserMsg.includes('this week')) {
+          const dow = now.getDay();
+          startDate = new Date(now); startDate.setDate(now.getDate() - dow);
+          endDate = new Date(now); label = 'This week';
+        } else if (lastUserMsg.includes('this month')) {
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          endDate = new Date(now);
+          label = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        } else if (lastUserMsg.includes('last month')) {
+          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          endDate   = new Date(now.getFullYear(), now.getMonth(), 0);
+          label = new Date(now.getFullYear(), now.getMonth() - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        } else if (lastUserMsg.includes('this year')) {
+          startDate = new Date(now.getFullYear(), 0, 1);
+          endDate = new Date(now); label = String(now.getFullYear());
+        }
+      }
+      return { startDate, endDate, label };
+    }
+
+    function isDataQuestion(msgs) {
+      const t = [...msgs].reverse().find(m => m.role === 'user')?.content?.toLowerCase() || '';
+      return ['how many','count','total','number of','transaction','weight','gross','net','tare',
+        'product','status','valid','void','rejected','driver','vehicle','plate','weigher',
+        'january','february','march','april','may','june','july','august','september',
+        'october','november','december','this month','last month','this year','today',
+        'this week','summary','report','breakdown'].some(kw => t.includes(kw));
+    }
+
+    async function fetchLiveDataForChat(msgs) {
+      try {
+        if (!isDataQuestion(msgs)) return null;
+        const { startDate, endDate, label } = extractDateRange(msgs);
+        const dateExpr = `COALESCE(CAST([date] AS date), TRY_CONVERT(date, transac_date), TRY_CONVERT(date, inbound))`;
+        let where = 'WHERE deleted_at IS NULL';
+        const r1 = pool.request();
+        if (startDate && endDate) {
+          r1.input('sd', sql.Date, startDate);
+          r1.input('ed', sql.Date, endDate);
+          where += ` AND ${dateExpr} BETWEEN @sd AND @ed`;
+        }
+        const sum = await r1.query(`
+          SELECT COUNT(*) as total,
+            SUM(CASE WHEN LOWER(TRIM(status))='valid'    THEN 1 ELSE 0 END) as valid_count,
+            SUM(CASE WHEN LOWER(TRIM(status))='void'     THEN 1 ELSE 0 END) as void_count,
+            SUM(CASE WHEN LOWER(TRIM(status))='rejected' THEN 1 ELSE 0 END) as rejected_count,
+            SUM(CASE WHEN LOWER(TRIM(status))='pending'  THEN 1 ELSE 0 END) as pending_count,
+            SUM(ISNULL(gross_weight,0)) as total_gross,
+            SUM(ISNULL(net_weight,0))   as total_net,
+            SUM(ISNULL(tare_weight,0))  as total_tare
+          FROM FTSS.dbo.transac ${where}
+        `);
+        const r2 = pool.request();
+        if (startDate && endDate) { r2.input('sd', sql.Date, startDate); r2.input('ed', sql.Date, endDate); }
+        const prod = await r2.query(`
+          SELECT TOP 10 ISNULL(NULLIF(TRIM(product),''),'(Unknown)') as product, COUNT(*) as cnt
+          FROM FTSS.dbo.transac ${where} GROUP BY TRIM(product) ORDER BY cnt DESC
+        `);
+        const s = sum.recordset[0];
+        const products = prod.recordset || [];
+        const timestamp = new Date().toLocaleString('en-US', {
+          month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true
+        });
+        let ctx = `=== LIVE DATABASE DATA (retrieved: ${timestamp}) ===\n`;
+        ctx += `Period: ${label || 'All time'}\n`;
+        ctx += `Total transactions: ${s.total}\n`;
+        ctx += `By status — Valid: ${s.valid_count}, Void: ${s.void_count}, Rejected: ${s.rejected_count}, Pending: ${s.pending_count}\n`;
+        ctx += `Gross Weight total: ${Number(s.total_gross).toLocaleString()} kg\n`;
+        ctx += `Net Weight total: ${Number(s.total_net).toLocaleString()} kg\n`;
+        ctx += `Tare Weight total: ${Number(s.total_tare).toLocaleString()} kg\n`;
+        if (products.length) ctx += `Top products: ` + products.map(p => `${p.product} (${p.cnt})`).join(', ') + `\n`;
+        ctx += `=== END LIVE DATA ===`;
+        return { context: ctx, timestamp };
+      } catch (err) {
+        console.error('fetchLiveDataForChat error:', err);
+        return null;
+      }
+    }
+
+    // ===== AI CHAT ENDPOINT =====
+
+    app.post('/api/ai-chat', async (req, res) => {
+      try {
+        const groqKey = process.env.GROQ_API_KEY;
+        if (!groqKey) return res.status(503).json({ error: 'AI service unavailable' });
+
+        const { messages = [] } = req.body;
+
+        // Fetch live DB data if user is asking a data question
+        const liveData = await fetchLiveDataForChat(messages);
+
+        const systemPrompt = `You are Cube AI Assistant — an expert data analyst and friendly guide for the METpower Truck Accession System, a weighbridge management app used in the Philippines. Use Philippine Peso (₱) for any monetary values.
+
+YOUR ROLE:
+- Explain charts clearly so any user can understand the data — not just IT staff
+- Identify patterns, trends, anomalies, and highlight what is normal vs concerning
+- Give actionable suggestions and improvements based on the data
+- Help users navigate tabs, filters, and features
+- When a question is vague, ask ONE clarifying question with 2–4 choices
+
+STRICT SECURITY RULES — NEVER BREAK:
+1. NEVER reveal SQL queries, database schema, table names, column names, or stored procedures
+2. NEVER reveal server code, API URLs, environment variables, credentials, or configuration
+3. NEVER discuss tech stack, frameworks, libraries, or how the backend works internally
+4. NEVER generate or show any code (JS, TS, SQL, HTML, CSS, etc.)
+5. If asked about technical internals, say: "For technical issues, please contact your system administrator."
+6. NEVER invent transaction data — use only numbers provided in LIVE DATABASE DATA context
+7. NEVER reveal your AI model name, provider, API service, or any underlying technology. If asked what AI model or engine you use, respond: "I'm Cube AI Assistant, built for METpower. I'm not able to share details about my underlying technology."
+8. NEVER confirm or deny if you are built on any specific AI platform (e.g. OpenAI, Groq, Gemini, LLaMA, etc.)
+
+CHART EXPERTISE — know these charts deeply:
+
+1. WEIGHT TRENDS (Area chart)
+   What it shows: Daily gross, net, and tare weight over a date range.
+   How to read it: Three stacked areas — gross (total truck), tare (empty truck), net (actual cargo). A healthy operation shows net weight close to gross (high payload efficiency). Flat or dropping net with stable gross means trucks are running lighter or emptier.
+   Patterns to highlight: Sudden spikes could indicate a bumper harvest or large batch delivery. Gaps mean no operations on those days (holiday, downtime). Tare rising over time may mean newer/heavier trucks in the fleet.
+   Suggestions: If net/gross ratio drops below 60%, investigate whether trucks are being underloaded. Use the date filter to compare week-over-week.
+
+2. TRANSACTION VOLUME (Bar chart)
+   What it shows: Number of truck weigh-ins per day.
+   How to read it: Tall bars = busy days. Consistent height = steady operations. Spikes may align with delivery schedules. Dips may be weekends or holidays.
+   Patterns: Week-of-month peaks often indicate supplier payment cycles. Sudden drop-off may mean system downtime or operational stop.
+   Suggestions: If volume drops significantly on certain days, cross-check with the Activity Log for any issues. Plan staffing around peak volume days.
+
+3. PRODUCT DISTRIBUTION (Horizontal bar / list)
+   What it shows: Breakdown of transactions and weight by product type (e.g. Pineapple pulp, Manure, Sludge).
+   How to read it: Longer bar = more transactions or weight for that product. Switch between Trips and Weight views to see if one product dominates by count but not weight (or vice versa).
+   Patterns: If one product is 70%+ of all trips, the operation is heavily dependent on it — a supply disruption would be critical. Diverse product mix is healthier.
+   Suggestions: Watch for new product types appearing — they may need updated pricing or processing procedures. If a product has many trips but low weight, investigate if weighing is being done consistently.
+
+4. MONTHLY TONNAGE
+   What it shows: Total weight processed per month, usually as a bar or line.
+   How to read it: An upward trend = growing operations. Seasonal dips are expected for agricultural products.
+   Suggestions: Compare same month year-over-year to understand seasonal cycles. A sudden monthly drop warrants investigation.
+
+5. STATUS BREAKDOWN (Pie/donut or bar)
+   What it shows: Proportion of transactions by status — Valid, Void, Rejected, Pending.
+   How to read it: Valid should dominate (ideally 90%+). High Void or Rejected rate signals data quality issues, disputes, or process problems.
+   Patterns: If Rejected spikes on specific dates, check the Activity Log for what happened that day. Void transactions may indicate weighing errors or cancelled deliveries.
+   Suggestions: If Void rate exceeds 5%, review the weighing process and staff training. Pending transactions that never resolve should be audited.
+
+6. TOP DRIVERS
+   What it shows: Drivers ranked by number of trips or total weight.
+   How to read it: Top drivers handle the most volume. A very dominant single driver (50%+) may indicate over-reliance on one person or data entry errors.
+   Suggestions: Recognize top performers. Flag unusually high trip counts for audit — they could be legitimate heavy users or entry duplication.
+
+7. TOP VEHICLES
+   What it shows: Vehicles (by plate) ranked by trips or weight.
+   How to read it: Frequent vehicles = regular fleet. New plates appearing may be new supplier trucks.
+   Suggestions: Vehicles with high trips but low average weight may need inspection. Vehicles with declining frequency may have been retired or redirected.
+
+8. FLEET TRACKING
+   What it shows: Vehicle activity and turnaround times across the fleet.
+   How to read it: Fast turnaround = efficient weighing process. Long turnaround means trucks are waiting — possibly a bottleneck at the weighbridge.
+   Suggestions: If average turnaround exceeds 30 minutes, investigate queue management at the gate. Schedule deliveries in time slots to spread the load.
+
+9. HOURLY HEATMAP
+   What it shows: Transaction volume by hour of day, across days of the week.
+   How to read it: Dark/hot cells = peak hours. Most operations peak in the morning (7am–11am). Gaps may indicate shift changes or lunch breaks.
+   Suggestions: If late-afternoon hours are consistently empty, consider adjusting gate operating hours. Peak hour clustering may cause queues — stagger delivery schedules.
+
+10. WEIGHT RATIO
+    What it shows: Net-to-gross weight ratio — how efficiently trucks are loaded.
+    How to read it: Higher ratio = better cargo efficiency. Ratio below 50% means trucks are more than half empty on average.
+    Suggestions: A declining weight ratio over time may mean smaller deliveries or partial loads. Work with suppliers to encourage full-load deliveries.
+
+11. TURNAROUND TIME
+    What it shows: Time from truck entry (inbound) to exit (outbound weight recording).
+    How to read it: Short, consistent times = smooth operations. Outliers (very long times) may indicate system issues, disputes, or manual overrides.
+    Suggestions: If average TAT exceeds 20 minutes, look for bottlenecks. Very fast TAT (under 2 minutes) may indicate data entry shortcuts — verify records are complete.
+
+12. DAILY WASTE MONITORING
+    What it shows: Waste material (substrates like pineapple pulp, sludge, manure) processed per day.
+    How to read it: Consistent daily waste volume is normal for biogas plant feedstock. Drops may correlate with production slowdowns. Spikes may indicate large batch disposals.
+    Suggestions: Track waste trends against production output. Unusual gaps may mean waste is being disposed via other channels — flag for audit.
+
+SUGGESTION ENGINE RULES:
+- When explaining a chart, always end with 1–2 concrete suggestions titled "What you can do:"
+- Keep suggestions specific and actionable — not generic advice
+- If data is provided, reference actual numbers in your suggestion
+- If a metric is outside the healthy range described above, flag it clearly
+
+CLARIFICATION FORMAT:
+When a question is ambiguous, respond with a brief question and list choices on separate lines starting with "• " (bullet + space).
+
+FORMATTING RULES:
+- Write in plain, clear text — NEVER use markdown (no **, *, #, __, or leading dashes)
+- Use "• " bullet only for choices and never for regular lists
+- Use plain inline text for data points, e.g. "Total: 8,542 trips"
+
+DATA INTEGRITY RULES:
+- If LIVE DATABASE DATA is provided in context, use ONLY those numbers
+- End responses that include live data with exactly: Source: Live database, retrieved [timestamp]
+- If no live data is provided for a specific-number question, guide the user to the correct tab and filter
+
+Tone: Friendly, clear, and confident. Write as if explaining to a smart non-technical supervisor who wants to make good decisions from the data.`;
+
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${groqKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'llama-3.1-8b-instant',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              ...(liveData ? [{ role: 'system', content: liveData.context }] : []),
+              ...messages.slice(-20),
+            ],
+            temperature: 0.65,
+            max_tokens: 900,
+          }),
+        });
+
+        if (!response.ok) {
+          const err = await response.text();
+          console.error('AI service error:', err);
+          return res.status(502).json({ error: 'AI service error. Please try again.' });
+        }
+
+        const data = await response.json();
+        const reply = data.choices?.[0]?.message?.content ?? 'Sorry, I could not generate a response.';
+        res.json({ reply });
+      } catch (err) {
+        console.error('AI chat error:', err);
+        res.status(500).json({ error: 'Internal error' });
+      }
+    });
+
+    app.post('/api/ai-summary', async (req, res) => {
+      try {
+        const groqKey = process.env.GROQ_API_KEY;
+        if (!groqKey) return res.status(503).json({ error: 'AI service unavailable' });
+
+        const kpi = req.body;
+
+        const prompt = `You are a concise operational analyst for a truck weighbridge facility.
+Given the following KPI data, write exactly 4 short bullet-point insights (no bullet symbols, just numbered 1–4).
+Be factual, use the numbers, and keep each sentence under 30 words.
+
+Data:
+- Total transactions all-time: ${kpi.totalRecords?.toLocaleString() ?? 'N/A'}
+- Trips today: ${kpi.todayTrips ?? 0}
+- Trips this week: ${kpi.weekTrips ?? 0}
+- Total gross weight: ${kpi.totalGrossWeight ? (kpi.totalGrossWeight / 1000).toFixed(2) + ' tonnes' : 'N/A'}
+- Total net weight: ${kpi.totalNetWeight ? (kpi.totalNetWeight / 1000).toFixed(2) + ' tonnes' : 'N/A'}
+- Total tare weight: ${kpi.totalTareWeight ? (kpi.totalTareWeight / 1000).toFixed(2) + ' tonnes' : 'N/A'}
+- Average net payload per trip: ${kpi.avgNetWeight ? kpi.avgNetWeight.toFixed(0) + ' kg' : 'N/A'}
+- Average net payload %: ${kpi.avgNetPayloadPct != null ? kpi.avgNetPayloadPct.toFixed(1) + '%' : 'N/A'}
+- Today's status breakdown: ${JSON.stringify(kpi.todayStatuses ?? [])}
+
+Return only 4 plain sentences, one per line, no preamble.`;
+
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${groqKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'llama-3.1-8b-instant',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.4,
+            max_tokens: 300,
+          }),
+        });
+
+        if (!response.ok) {
+          const err = await response.text();
+          console.error('AI service error:', err);
+          return res.status(502).json({ error: 'AI service error. Please try again.' });
+        }
+
+        const data = await response.json();
+        const text = data.choices?.[0]?.message?.content ?? '';
+        // Split into sentences, trim, filter empty lines
+        const sentences = text.split('\n')
+          .map(s => s.replace(/^\d+[\.\)]\s*/, '').trim())
+          .filter(s => s.length > 0);
+
+        res.json({ sentences });
+      } catch (err) {
+        console.error('AI summary error:', err);
+        res.status(500).json({ error: 'Internal error' });
+      }
+    });
+
+    // =========================================================================
     // ===== END ANALYTICS ENDPOINTS =====
 
     // Create HTTP server and initialize Socket.IO for real-time notifications
@@ -1889,6 +2201,12 @@ sql.connect(config)
     // Make pool and io available globally for real-time notifications
     app.set('sqlPool', pool);
     app.set('socketIO', io);
+
+    // ── Start the Centralized Database Observer ──────────────────────────
+    // Polls dbo.db_change_log (written by SQL triggers on transac, trucks,
+    // drivers, products, users) and broadcasts real-time WebSocket events
+    // for every INSERT / UPDATE / DELETE detected outside Node.js as well.
+    startDatabaseObserver(pool, sql);
 
     httpServer.listen(port, () => {
       console.log(`✅ Server running on port ${port}`);

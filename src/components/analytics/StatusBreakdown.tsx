@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePersistentState } from '../../hooks/usePersistentState';
-import { Calendar, RotateCcw } from 'lucide-react';
+import { Calendar, RotateCcw, Bot } from 'lucide-react';
 
 interface StatusRow { status: string; count: number; }
 
@@ -97,8 +97,19 @@ export default function StatusBreakdown() {
 
       {/* Panel */}
       <div className="bg-white dark:bg-midnight-900 rounded-xl border border-gray-200 dark:border-midnight-600 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 dark:border-midnight-700">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-midnight-700">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Transaction Status Breakdown</h3>
+          <button
+            onClick={() => {
+              const breakdown = data.map(d => `${d.status}: ${d.count}`).join(', ');
+              const total = data.reduce((s, d) => s + d.count, 0);
+              window.dispatchEvent(new CustomEvent('explain-chart', { detail: { message: `Explain the Transaction Status Breakdown chart (${startDate} to ${endDate}). Total transactions: ${total}. Breakdown: ${breakdown || 'no data yet'}. What does this distribution mean, which status dominates, are the void or rejected counts concerning, what is the success rate, and what actions should be taken to improve transaction quality?` } }));
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800/50 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors shrink-0"
+            title="Ask AI to explain this chart"
+          >
+            <Bot className="w-3.5 h-3.5" /> Explain
+          </button>
         </div>
 
         {loading ? (

@@ -48,6 +48,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     Cookies.remove('authToken');
     Cookies.remove('userData');
+    // Allow AI welcome brief to re-fire on next login
+    sessionStorage.removeItem('cube-ai-session-briefed');
     setUser(null);
     setIsAuthenticated(false);
   };

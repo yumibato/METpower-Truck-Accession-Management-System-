@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePersistentState } from '../../hooks/usePersistentState';
-import { Calendar, RotateCcw } from 'lucide-react';
+import { Calendar, RotateCcw, Bot } from 'lucide-react';
 
 interface HeatCell { dow: number; hour: number; count: number; }
 
@@ -100,11 +100,25 @@ export default function HourlyHeatmap() {
       <div className="bg-white dark:bg-midnight-900 rounded-xl border border-gray-200 dark:border-midnight-600 shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-midnight-700">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Hourly Traffic Heatmap</h3>
-          {hovered && (
-            <span className="text-xs text-gray-500 dark:text-enterprise-muted">
-              {DOW_LABELS[hovered.dow - 1]} {formatHour(hovered.hour)} — <strong className="text-gray-700 dark:text-gray-200">{hoveredCount} trips</strong>
-            </span>
-          )}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                const total = data.reduce((s, d) => s + d.count, 0);
+                const peak = data.length ? data.reduce((a, b) => b.count > a.count ? b : a) : null;
+                const peakLabel = peak ? `${DOW_LABELS[peak.dow - 1]} at ${formatHour(peak.hour)} (${peak.count} trips)` : 'n/a';
+                window.dispatchEvent(new CustomEvent('explain-chart', { detail: { message: `Explain the Hourly Traffic Heatmap (${startDate} to ${endDate}). Total trips plotted: ${total}. Peak cell: ${peakLabel}. What are the busiest days and hours, what patterns are visible in truck arrivals, are there off-peak bottlenecks or gaps, and what scheduling recommendations can be made?` } }));
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800/50 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors shrink-0"
+              title="Ask AI to explain this chart"
+            >
+              <Bot className="w-3.5 h-3.5" /> Explain
+            </button>
+            {hovered && (
+              <span className="text-xs text-gray-500 dark:text-enterprise-muted">
+                {DOW_LABELS[hovered.dow - 1]} {formatHour(hovered.hour)} — <strong className="text-gray-700 dark:text-gray-200">{hoveredCount} trips</strong>
+              </span>
+            )}
+          </div>
         </div>
 
         {loading ? (

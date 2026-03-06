@@ -139,13 +139,13 @@ const InfoDrawer: React.FC<InfoDrawerProps> = ({
           <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
             <div className="text-xs text-gray-600 dark:text-gray-400">Total Cost</div>
             <div className="text-2xl font-bold text-blue-600">
-              ${utilData.totalCost.toFixed(2)}
+              ₱{utilData.totalCost.toFixed(2)}
             </div>
           </div>
           <div>
             <span className="text-xs font-medium">Cost per Ton: </span>
             <span className="font-semibold text-gray-900 dark:text-white">
-              ${utilData.costPerTon.toFixed(2)}
+              ₱{utilData.costPerTon.toFixed(2)}
             </span>
           </div>
         </div>
@@ -411,7 +411,7 @@ const MetricCard: React.FC<{
 const CostItem: React.FC<{ label: string; value: number }> = ({ label, value }) => (
   <div className="flex justify-between items-center py-2">
     <span className="text-sm text-gray-600 dark:text-gray-400">{label}</span>
-    <span className="font-semibold text-gray-900 dark:text-white">${value.toFixed(2)}</span>
+    <span className="font-semibold text-gray-900 dark:text-white">₱{value.toFixed(2)}</span>
   </div>
 );
 

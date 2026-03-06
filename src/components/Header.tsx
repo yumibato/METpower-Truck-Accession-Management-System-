@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { LogOut, User, Trash2, Zap, Bell, Wifi, WifiOff, BarChart3, FileText, Activity } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import ThemeToggle from './ThemeToggle';
 import NotificationHistory from './NotificationHistory';
 import axios from 'axios';
 
@@ -66,7 +65,7 @@ export default function Header() {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <header className="bg-white dark:bg-midnight-800 shadow-sm border-b border-gray-200 dark:border-midnight-700 transition-colors duration-200">
+    <header className="glass-nav sticky top-0 z-30 transition-colors duration-200">
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo and Title */}
@@ -80,7 +79,7 @@ export default function Header() {
                   onError={() => setLogoError(true)}
                 />
               ) : (
-                <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded flex items-center justify-center">
+                <div className="h-10 w-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md shadow-cyan-500/25">
                   <Zap className="h-6 w-6 text-white" />
                 </div>
               )}
@@ -99,20 +98,20 @@ export default function Header() {
           <div className="hidden md:flex items-center space-x-1">
             <button
               onClick={() => navigate('/dashboard')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150 ${
                 isActive('/dashboard')
-                  ? 'bg-blue-50 dark:bg-neon-cyan-glow/20 text-blue-600 dark:text-neon-cyan-glow border-b-2 border-blue-600 dark:border-neon-cyan-glow'
-                  : 'text-gray-700 dark:text-enterprise-silver hover:bg-gray-50 dark:hover:bg-midnight-700'
+                  ? 'bg-white/80 dark:bg-white/10 text-blue-600 dark:text-neon-cyan-glow shadow-sm'
+                  : 'text-gray-600 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
               📊 Dashboard
             </button>
             <button
               onClick={() => navigate('/transactions')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center space-x-2 ${
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150 flex items-center space-x-2 ${
                 isActive('/transactions')
-                  ? 'bg-blue-50 dark:bg-neon-cyan-glow/20 text-blue-600 dark:text-neon-cyan-glow border-b-2 border-blue-600 dark:border-neon-cyan-glow'
-                  : 'text-gray-700 dark:text-enterprise-silver hover:bg-gray-50 dark:hover:bg-midnight-700'
+                  ? 'bg-white/80 dark:bg-white/10 text-blue-600 dark:text-neon-cyan-glow shadow-sm'
+                  : 'text-gray-600 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
               <FileText className="h-4 w-4" />
@@ -120,10 +119,10 @@ export default function Header() {
             </button>
             <button
               onClick={() => navigate('/activity-log')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center space-x-2 ${
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150 flex items-center space-x-2 ${
                 isActive('/activity-log')
-                  ? 'bg-blue-50 dark:bg-neon-cyan-glow/20 text-blue-600 dark:text-neon-cyan-glow border-b-2 border-blue-600 dark:border-neon-cyan-glow'
-                  : 'text-gray-700 dark:text-enterprise-silver hover:bg-gray-50 dark:hover:bg-midnight-700'
+                  ? 'bg-white/80 dark:bg-white/10 text-blue-600 dark:text-neon-cyan-glow shadow-sm'
+                  : 'text-gray-600 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
               <Activity className="h-4 w-4" />
@@ -131,10 +130,10 @@ export default function Header() {
             </button>
             <button
               onClick={() => navigate('/analytics')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center space-x-2 ${
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150 flex items-center space-x-2 ${
                 isActive('/analytics')
-                  ? 'bg-blue-50 dark:bg-neon-cyan-glow/20 text-blue-600 dark:text-neon-cyan-glow border-b-2 border-blue-600 dark:border-neon-cyan-glow'
-                  : 'text-gray-700 dark:text-enterprise-silver hover:bg-gray-50 dark:hover:bg-midnight-700'
+                  ? 'bg-white/80 dark:bg-white/10 text-blue-600 dark:text-neon-cyan-glow shadow-sm'
+                  : 'text-gray-600 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
               <BarChart3 className="h-4 w-4" />
@@ -142,10 +141,10 @@ export default function Header() {
             </button>
             <button
               onClick={() => navigate('/trash')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center space-x-2 ${
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150 flex items-center space-x-2 ${
                 isActive('/trash')
-                  ? 'bg-red-50 dark:bg-status-error/20 text-red-600 dark:text-status-error border-b-2 border-red-600 dark:border-status-error'
-                  : 'text-gray-700 dark:text-enterprise-silver hover:bg-gray-50 dark:hover:bg-midnight-700'
+                  ? 'bg-red-50/80 dark:bg-red-500/15 text-red-600 dark:text-red-400 shadow-sm'
+                  : 'text-gray-600 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
               <Trash2 className="h-4 w-4" />
@@ -189,7 +188,7 @@ export default function Header() {
             {/* Notification Bell */}
             <button
               onClick={() => setIsNotificationPanelOpen(true)}
-              className="relative p-2 text-gray-700 dark:text-enterprise-silver hover:bg-gray-100 dark:hover:bg-midnight-700 rounded-lg transition-colors"
+              className="relative p-2 text-gray-600 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/8 rounded-lg transition-all duration-150"
             >
               <Bell className="h-5 w-5" />
               {unreadCount > 0 && (
@@ -199,18 +198,16 @@ export default function Header() {
               )}
             </button>
             
-            <div className="flex items-center space-x-2 text-sm text-gray-700 dark:text-enterprise-silver">
+            <div className="flex items-center space-x-2 text-sm text-white/70">
               <User className="h-4 w-4" />
               <span className="font-medium">{user?.username}</span>
-              <span className="text-gray-400 dark:text-enterprise-muted">|</span>
-              <span className="text-gray-500 dark:text-enterprise-muted capitalize">{user?.role}</span>
+              <span className="text-white/20">|</span>
+              <span className="text-white/35 capitalize">{user?.role}</span>
             </div>
-            
-            <ThemeToggle />
             
             <button
               onClick={handleLogout}
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-enterprise-silver hover:text-red-600 dark:hover:text-status-error hover:bg-red-50 dark:hover:bg-status-error/20 rounded-lg transition-colors"
+              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-white/60 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all duration-150"
             >
               <LogOut className="h-4 w-4" />
               <span>Logout</span>

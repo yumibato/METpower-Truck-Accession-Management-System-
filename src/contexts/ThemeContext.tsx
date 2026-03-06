@@ -15,48 +15,24 @@ interface ThemeProviderProps {
 }
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-  // ✅ FIX: Initialize theme from localStorage IMMEDIATELY (not in useEffect)
-  // This prevents the flash of light mode on page load
-  const [theme, setTheme] = useState<Theme>(() => {
-    try {
-      // Check if we're in a browser environment
-      if (typeof window === 'undefined') return 'light';
-      
-      // Check local storage for saved theme preference
-      const savedTheme = localStorage.getItem('theme') as Theme;
-      if (savedTheme && (savedTheme === 'light' || savedTheme === 'dark')) {
-        return savedTheme;
-      }
-      
-      // Check system preference if no saved theme
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      return systemTheme;
-    } catch (error) {
-      console.warn('Error reading theme from localStorage:', error);
-      return 'light';
-    }
-  });
+  // ✅ DARK MODE LOCKED: Entire app is designed for dark glassmorphism only
+  // No light mode support — this prevents UI breakage and provides best UX
+  const [theme] = useState<Theme>('dark');
 
   useEffect(() => {
-    // Apply theme to document
-    const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-    
-    // Save to local storage
+    // Force and lock dark mode on document root
+    document.documentElement.classList.add('dark');
+    // Clear any light mode preference from localStorage
     try {
-      localStorage.setItem('theme', theme);
+      localStorage.setItem('theme', 'dark');
     } catch (error) {
       console.warn('Error saving theme to localStorage:', error);
     }
-  }, [theme]);
+  }, []);
 
-  const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
-  };
+  // Disabled: theme toggle is locked to dark mode for best UX
+  const setTheme = () => {};
+  const toggleTheme = () => {};
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>

@@ -163,8 +163,8 @@ export default function TransactionModal({
   } transition-colors`;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-stretch justify-center z-50 p-4 lg:p-8">
-      <div className="bg-white rounded-xl shadow-2xl w-full h-full max-w-none flex flex-col">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-stretch justify-center z-50 p-4 lg:p-8">
+      <div className="glass-card rounded-2xl shadow-2xl w-full h-full max-w-none flex flex-col">
         {/* Header */}
         <div className="bg-gradient-to-r from-neon-cyan-glow to-teal-600 dark:shadow-neon-cyan px-6 py-4 flex-shrink-0">
           <div className="flex items-center justify-between">

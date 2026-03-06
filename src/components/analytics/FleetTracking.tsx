@@ -4,7 +4,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import { Calendar, RotateCcw } from 'lucide-react';
+import { Calendar, RotateCcw, Bot } from 'lucide-react';
 import { useDarkMode } from '../../hooks/useDarkMode';
 
 interface Row { year: number; month: number; total_vehicles: number; new_vehicles: number; returning_vehicles: number; }
@@ -101,9 +101,24 @@ export default function FleetTracking() {
       )}
 
       <div className="bg-white dark:bg-midnight-900 rounded-xl border border-gray-200 dark:border-midnight-600 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 dark:border-midnight-700">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">New vs Returning Vehicles Over Time</h3>
-          <p className="text-xs text-gray-400 dark:text-enterprise-muted mt-0.5">Monthly distinct plates — green = first-time vehicles, blue = returning (seen in a previous month).</p>
+        <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100 dark:border-midnight-700">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">New vs Returning Vehicles Over Time</h3>
+            <p className="text-xs text-gray-400 dark:text-enterprise-muted mt-0.5">Monthly distinct plates — green = first-time vehicles, blue = returning (seen in a previous month).</p>
+          </div>
+          <button
+            onClick={() => {
+              const totalNew = data.reduce((s, d) => s + d.new_vehicles, 0);
+              const totalReturning = data.reduce((s, d) => s + d.returning_vehicles, 0);
+              const latest = data.length ? data[data.length - 1] : null;
+              const latestLabel = latest ? `${MONTH_SHORT[latest.month - 1]} ${latest.year}: ${latest.new_vehicles} new, ${latest.returning_vehicles} returning` : 'n/a';
+              window.dispatchEvent(new CustomEvent('explain-chart', { detail: { message: `Explain the New vs Returning Vehicles chart (${startDate} to ${endDate}). Total new vehicles across period: ${totalNew}. Total returning: ${totalReturning}. Latest month: ${latestLabel}. Is the fleet growing or declining, what does the new-to-returning ratio mean for fleet health, are there months with unusual spikes in new vehicles, and what does this mean for operations?` } }));
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800/50 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors shrink-0 ml-3"
+            title="Ask AI to explain this chart"
+          >
+            <Bot className="w-3.5 h-3.5" /> Explain
+          </button>
         </div>
 
         {loading ? (

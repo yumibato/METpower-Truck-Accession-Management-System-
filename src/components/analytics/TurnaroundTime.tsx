@@ -4,7 +4,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
-import { Calendar, RotateCcw } from 'lucide-react';
+import { Calendar, RotateCcw, Bot } from 'lucide-react';
 import { useDarkMode } from '../../hooks/useDarkMode';
 
 interface Row {
@@ -119,9 +119,23 @@ export default function TurnaroundTime() {
       )}
 
       <div className="bg-white dark:bg-midnight-900 rounded-xl border border-gray-200 dark:border-midnight-600 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 dark:border-midnight-700">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Average Turnaround Time per Day</h3>
-          <p className="text-xs text-gray-400 dark:text-enterprise-muted mt-0.5">Time between inbound and outbound timestamps. Only days with valid timestamps shown.</p>
+        <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100 dark:border-midnight-700">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Average Turnaround Time per Day</h3>
+            <p className="text-xs text-gray-400 dark:text-enterprise-muted mt-0.5">Time between inbound and outbound timestamps. Only days with valid timestamps shown.</p>
+          </div>
+          <button
+            onClick={() => {
+              const avgTAT = data.length ? (data.reduce((s, d) => s + d.avg_minutes, 0) / data.length).toFixed(1) : 'n/a';
+              const worst = data.length ? data.reduce((a, b) => b.avg_minutes > a.avg_minutes ? b : a) : null;
+              const worstLabel = worst ? `${worst.transac_date} (${worst.avg_minutes.toFixed(1)} min)` : 'n/a';
+              window.dispatchEvent(new CustomEvent('explain-chart', { detail: { message: `Explain the Average Turnaround Time chart (${startDate} to ${endDate}). Overall average TAT: ${avgTAT} minutes. Worst day: ${worstLabel}. Is the turnaround time acceptable for a waste processing facility, what days show bottlenecks, what is causing the spikes, and what operational changes could reduce turnaround times?` } }));
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800/50 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors shrink-0 ml-3"
+            title="Ask AI to explain this chart"
+          >
+            <Bot className="w-3.5 h-3.5" /> Explain
+          </button>
         </div>
 
         {loading ? (

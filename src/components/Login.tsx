@@ -54,55 +54,55 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 dark:from-midnight-950 dark:via-midnight-900 dark:to-midnight-950 flex items-center justify-center px-4 sm:px-6 lg:px-8 transition-colors duration-200">
-      {/* Theme Toggle in top right corner */}
-      <div className="absolute top-4 right-4">
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden px-4">
+
+      {/* Theme Toggle */}
+      <div className="absolute top-4 right-4 z-10">
         <ThemeToggle />
       </div>
-      
-      <div className="max-w-md w-full space-y-8">
-        {/* Header */}
-        <div className="text-center">
-          <div className="mx-auto h-24 w-auto flex items-center justify-center">
+
+      <div className="relative z-10 w-full max-w-sm">
+        {/* Logo + Title */}
+        <div className="text-center mb-8">
+          <div className="mx-auto h-20 w-auto flex items-center justify-center mb-5">
             {!logoError ? (
-              <img 
-                src="/metpower-icon.svg" 
-                alt="METpower Logo" 
-                className="h-full w-auto object-contain"
+              <img
+                src="/metpower-icon.svg"
+                alt="METpower Logo"
+                className="h-full w-auto object-contain drop-shadow-2xl"
                 onError={() => setLogoError(true)}
               />
             ) : (
-              <div className="h-24 w-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center shadow-xl">
-                <Zap className="h-12 w-12 text-white" />
+              <div className="h-20 w-20 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-xl shadow-cyan-500/30">
+                <Zap className="h-10 w-10 text-white" />
               </div>
             )}
           </div>
-          <h2 className="mt-6 text-2xl font-bold text-gray-900 dark:text-white transition-colors duration-200">
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
             Truck Accession System
-          </h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-enterprise-silver transition-colors duration-200">
+          </h1>
+          <p className="mt-1.5 text-sm text-gray-500 dark:text-white/35 font-light">
             Administrator Login
           </p>
         </div>
 
-        {/* Login Form */}
-        <div className="bg-white dark:bg-midnight-800 py-8 px-6 shadow-xl rounded-xl border border-gray-100 dark:border-midnight-700 transition-colors duration-200">
-          <form className="space-y-6" onSubmit={handleSubmit}>
+        {/* Glass card */}
+        <div className="glass-card rounded-3xl p-7 space-y-5">
+          <form className="space-y-5" onSubmit={handleSubmit}>
             {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center space-x-3">
-                <AlertCircle className="h-5 w-5 text-red-500 dark:text-red-400 flex-shrink-0" />
+              <div className="flex items-center gap-2.5 p-3 rounded-2xl bg-red-50/80 dark:bg-red-500/10 border border-red-200/60 dark:border-red-400/20">
+                <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
                 <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
               </div>
             )}
 
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-enterprise-silver mb-2 transition-colors duration-200">
+            {/* Username */}
+            <div className="space-y-1.5">
+              <label htmlFor="username" className="block text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-white/30">
                 Username
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-                </div>
+                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-white/25" />
                 <input
                   id="username"
                   name="username"
@@ -110,20 +110,19 @@ export default function Login() {
                   required
                   value={formData.username}
                   onChange={handleChange}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-midnight-600 bg-white dark:bg-midnight-700 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-neon-cyan-glow focus:border-transparent transition-colors duration-200"
                   placeholder="Enter your username"
+                  className="glass-input w-full pl-10 pr-4 py-3 rounded-xl text-sm text-gray-900 placeholder-gray-400"
                 />
               </div>
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-enterprise-silver mb-2 transition-colors duration-200">
+            {/* Password */}
+            <div className="space-y-1.5">
+              <label htmlFor="password" className="block text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-white/30">
                 Password
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-                </div>
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-white/25" />
                 <input
                   id="password"
                   name="password"
@@ -131,46 +130,44 @@ export default function Login() {
                   required
                   value={formData.password}
                   onChange={handleChange}
-                  className="block w-full pl-10 pr-10 py-3 border border-gray-300 dark:border-midnight-600 bg-white dark:bg-midnight-700 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-neon-cyan-glow focus:border-transparent transition-colors duration-200"
                   placeholder="Enter your password"
+                  className="glass-input w-full pl-10 pr-10 py-3 rounded-xl text-sm text-gray-900"
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center focus:outline-none"
                   onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-white/25 hover:text-gray-600 dark:hover:text-white/50 transition-colors focus:outline-none"
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-                  ) : (
-                    <Eye className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-                  )}
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
 
+            {/* Submit */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-neon-cyan-glow hover:bg-neon-cyan-bright focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neon-cyan-glow disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl dark:shadow-neon-cyan"
+              className="w-full py-3 rounded-xl text-sm font-semibold text-white
+                bg-gradient-to-r from-cyan-500 to-blue-500
+                hover:from-cyan-400 hover:to-blue-400
+                shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40
+                focus:outline-none focus:ring-2 focus:ring-cyan-400/40
+                disabled:opacity-50 disabled:cursor-not-allowed
+                transition-all duration-200"
             >
               {loading ? (
-                <div className="flex items-center space-x-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>Signing in...</span>
-                </div>
-              ) : (
-                'Sign In'
-              )}
+                <span className="flex items-center justify-center gap-2">
+                  <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Signing in…
+                </span>
+              ) : 'Sign In'}
             </button>
           </form>
         </div>
 
-        {/* Footer */}
-        <div className="text-center">
-          <p className="text-xs text-gray-500 dark:text-enterprise-muted transition-colors duration-200">
-            2025 METpower. All rights reserved.
-          </p>
-        </div>
+        <p className="text-center text-[11px] text-gray-400/70 dark:text-white/15 mt-6 font-light">
+          © 2025 METpower. All rights reserved.
+        </p>
       </div>
     </div>
   );

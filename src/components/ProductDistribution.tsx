@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePersistentState } from '../hooks/usePersistentState';
-import { Calendar, RotateCcw } from 'lucide-react';
+import { Calendar, RotateCcw, Bot } from 'lucide-react';
 
 interface ProductData {
   product: string;
@@ -137,8 +137,16 @@ export default function ProductDistribution({ onViewSource: _onViewSource }: Pro
         {/* Panel header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-midnight-700">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Distribution by Product</h3>
-          {/* Metric toggle */}
-          <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-midnight-600 text-xs font-medium">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('explain-chart', { detail: { message: 'Explain the Product Distribution chart. What does it show, how do I switch between Trips and Weight views, and what should I look for in the product breakdown?' } }))}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800/50 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors shrink-0"
+              title="Ask AI to explain this chart"
+            >
+              <Bot className="w-3.5 h-3.5" /> Explain
+            </button>
+            {/* Metric toggle */}
+            <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-midnight-600 text-xs font-medium">
             {(['count', 'weight'] as const).map((m) => (
               <button
                 key={m}
@@ -152,6 +160,7 @@ export default function ProductDistribution({ onViewSource: _onViewSource }: Pro
                 {m === 'count' ? 'Trips' : 'Weight'}
               </button>
             ))}
+          </div>
           </div>
         </div>
 

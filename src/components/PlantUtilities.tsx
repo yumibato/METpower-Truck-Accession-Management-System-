@@ -227,7 +227,7 @@ const PlantUtilities: React.FC<PlantUtilitiesProps> = ({ onDataUpdate, onViewSou
             <DollarSign className={`w-5 h-5 ${isDark ? 'text-red-400' : 'text-red-600'}`} />
             <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>Total Cost</p>
           </div>
-          <p className={`text-3xl font-bold ${isDark ? 'text-red-400' : 'text-red-700'}`}>${summary.totalCost.toLocaleString('en-US', {maximumFractionDigits: 0})}</p>
+          <p className={`text-3xl font-bold ${isDark ? 'text-red-400' : 'text-red-700'}`}>₱{summary.totalCost.toLocaleString('en-US', {maximumFractionDigits: 0})}</p>
           <p className={`text-xs mt-1 ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>{summary.recordCount} days</p>
         </div>
 
@@ -269,7 +269,7 @@ const PlantUtilities: React.FC<PlantUtilitiesProps> = ({ onDataUpdate, onViewSou
             <TrendingDown className={`w-5 h-5 ${isDark ? 'text-purple-400' : 'text-purple-600'}`} />
             <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>Cost/Ton</p>
           </div>
-          <p className={`text-3xl font-bold ${isDark ? 'text-purple-400' : 'text-purple-700'}`}>${typeof summary.averageCostPerTon === 'number' ? summary.averageCostPerTon.toFixed(2) : '0.00'}</p>
+          <p className={`text-3xl font-bold ${isDark ? 'text-purple-400' : 'text-purple-700'}`}>₱{typeof summary.averageCostPerTon === 'number' ? summary.averageCostPerTon.toFixed(2) : '0.00'}</p>
           <p className={`text-xs mt-1 ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>avg daily</p>
         </div>
       </div>
@@ -293,7 +293,7 @@ const PlantUtilities: React.FC<PlantUtilitiesProps> = ({ onDataUpdate, onViewSou
             <Tooltip 
               contentStyle={{ backgroundColor: currentTheme.tooltipBg, border: `1px solid ${currentTheme.tooltipBorder}`, cursor: 'pointer' }}
               labelStyle={{ color: isDark ? '#06b6d4' : '#2563eb' }}
-              formatter={(value) => [`$${typeof value === 'number' ? value.toFixed(2) : value}`, 'Cost']}
+              formatter={(value) => [`₱${typeof value === 'number' ? value.toFixed(2) : value}`, 'Cost']}
               cursor="pointer"
             />
             <Legend wrapperStyle={{ color: currentTheme.textColor }} />
@@ -326,7 +326,7 @@ const PlantUtilities: React.FC<PlantUtilitiesProps> = ({ onDataUpdate, onViewSou
               <Tooltip 
                 contentStyle={{ backgroundColor: currentTheme.tooltipBg, border: `1px solid ${currentTheme.tooltipBorder}` }}
                 labelStyle={{ color: isDark ? '#06b6d4' : '#2563eb' }}
-                formatter={(value) => `$${typeof value === 'number' ? value.toFixed(2) : value}`}
+                formatter={(value) => `₱${typeof value === 'number' ? value.toFixed(2) : value}`}
               />
               <Legend wrapperStyle={{ color: currentTheme.textColor }} />
               <Bar dataKey="electricity_cost" fill="#fbbf24" name="Electricity" />

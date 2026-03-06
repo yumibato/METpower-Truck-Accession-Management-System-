@@ -7,21 +7,17 @@
     <title>METPower - Truck Accession System</title>
     <meta name="description" content="Professional truck accession ticket management system for METpower operations">
     
-    <!-- 🌙 DARK MODE FIX: Apply theme IMMEDIATELY to prevent flash -->
+    <!-- 🌙 Always dark: app uses a permanent dark navy background -->
     <script>
-      // This runs BEFORE React loads, preventing light mode flash
       (function() {
         try {
-          const savedTheme = localStorage.getItem('theme');
-          const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-          const theme = savedTheme || systemTheme;
-          
+          const saved = localStorage.getItem('theme');
+          // Default to dark if nothing saved
+          const theme = saved || 'dark';
           if (theme === 'dark') {
             document.documentElement.classList.add('dark');
           }
-        } catch (e) {
-          // Fail silently if localStorage is not available
-        }
+        } catch (e) {}
       })();
     </script>
     
@@ -29,7 +25,7 @@
     <link rel="manifest" href="/manifest.json">
     
     <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#2563eb">
+    <meta name="theme-color" content="#060d1f">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">

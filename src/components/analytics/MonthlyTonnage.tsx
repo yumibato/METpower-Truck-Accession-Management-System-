@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, Cell,
 } from 'recharts';
-import { Calendar, RotateCcw } from 'lucide-react';
+import { Calendar, RotateCcw, Bot } from 'lucide-react';
 import { useDarkMode } from '../../hooks/useDarkMode';
 
 interface RawRow { year: number; month: number; total_weight: number; trips: number; }
@@ -99,13 +99,28 @@ export default function MonthlyTonnage() {
       <div className="bg-white dark:bg-midnight-900 rounded-xl border border-gray-200 dark:border-midnight-600 shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-midnight-700">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Monthly Tonnage Comparison (Year-over-Year)</h3>
-          <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-midnight-600 text-xs font-medium">
-            {(['weight','trips'] as const).map(m => (
-              <button key={m} onClick={() => setMetric(m)}
-                className={`px-3 py-1.5 transition-colors ${metric === m ? 'bg-blue-600 text-white' : 'bg-white dark:bg-midnight-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-midnight-700'}`}>
-                {m === 'weight' ? 'Tonnage' : 'Trips'}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const years = [...new Set(raw.map(r => r.year))].sort().join(', ');
+                const total = raw.reduce((s, r) => s + (metric === 'weight' ? r.total_weight : r.trips), 0);
+                const peak = raw.length ? raw.reduce((a, b) => (metric === 'weight' ? b.total_weight : b.trips) > (metric === 'weight' ? a.total_weight : a.trips) ? b : a) : null;
+                const peakLabel = peak ? `${MONTH_SHORT[peak.month - 1]} ${peak.year}` : 'n/a';
+                window.dispatchEvent(new CustomEvent('explain-chart', { detail: { message: `Explain the Monthly Tonnage chart (${startDate} to ${endDate}). Years shown: ${years || 'n/a'}. Currently viewing: ${metric === 'weight' ? 'tonnage' : 'trips'}. Total: ${metric === 'weight' ? (total/1000).toFixed(1)+'t' : total+' trips'}. Peak month: ${peakLabel}. What seasonal patterns are visible, how does year-over-year compare, are there concerning drops or spikes, and what should be done?` } }));
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800/50 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors shrink-0"
+              title="Ask AI to explain this chart"
+            >
+              <Bot className="w-3.5 h-3.5" /> Explain
+            </button>
+            <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-midnight-600 text-xs font-medium">
+              {(['weight','trips'] as const).map(m => (
+                <button key={m} onClick={() => setMetric(m)}
+                  className={`px-3 py-1.5 transition-colors ${metric === m ? 'bg-blue-600 text-white' : 'bg-white dark:bg-midnight-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-midnight-700'}`}>
+                  {m === 'weight' ? 'Tonnage' : 'Trips'}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

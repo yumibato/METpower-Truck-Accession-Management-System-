@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import {
   Calendar, RotateCcw, Download, ChevronDown, AlertTriangle,
-  Leaf, Droplets, Package2, Target,
+  Leaf, Droplets, Package2, Target, Bot,
 } from 'lucide-react';
 import { usePersistentState } from '../../hooks/usePersistentState';
 import { useDarkMode } from '../../hooks/useDarkMode';
@@ -342,11 +342,27 @@ export default function DailyWasteMonitoring() {
               </p>
             </div>
           </div>
-          <button
-            onClick={() => exportCSV(feedstock, sourcePie, dailyTotals, appliedStart, appliedEnd, subFilter)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm">
-            <Download className="w-3.5 h-3.5" /> Export CSV
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const totalNetTons = (feedstock.reduce((s, r) => s + r.net_kg, 0) / 1000).toFixed(1);
+                const totalTrips = feedstock.reduce((s, r) => s + r.trips, 0);
+                const substrates = [...new Set(feedstock.map(r => r.substrate_category))].join(', ') || 'n/a';
+                const topSource = sourcePie.length ? sourcePie.sort((a, b) => (b.net_kg ?? 0) - (a.net_kg ?? 0))[0] : null;
+                const topLabel = topSource ? `${(topSource as any).substrate_category ?? (topSource as any).source ?? 'Unknown'}` : 'n/a';
+                window.dispatchEvent(new CustomEvent('explain-chart', { detail: { message: `Explain the Daily Waste Monitoring charts (${appliedStart || 'all'} to ${appliedEnd || 'all'}). Filter: ${subFilter}. Total net tonnage: ${totalNetTons}t across ${totalTrips} trips. Substrates present: ${substrates}. Top source: ${topLabel}. What are the daily trends, are volumes consistent or fluctuating, which substrate dominates, are there any concerning drops or spikes in waste intake, and what should operations adjust?` } }));
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800/50 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors shrink-0`}
+              title="Ask AI to explain this chart"
+            >
+              <Bot className="w-3.5 h-3.5" /> Explain
+            </button>
+            <button
+              onClick={() => exportCSV(feedstock, sourcePie, dailyTotals, appliedStart, appliedEnd, subFilter)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm">
+              <Download className="w-3.5 h-3.5" /> Export CSV
+            </button>
+          </div>
         </div>
 
         {/* Controls row */}

@@ -86,14 +86,21 @@ export default function TransactionsPage() {
     return () => { isMountedRef.current = false; };
   }, [fetchTransactions]);
 
-  // Auto-refresh every 10s
+  // Auto-refresh every 10s as fallback
   useEffect(() => {
     const iv = setInterval(() => { if (isMountedRef.current) fetchTransactions(true); }, 10000);
     return () => clearInterval(iv);
   }, [fetchTransactions]);
 
+  // Immediate refresh on any live DB change from socket
+  useEffect(() => {
+    const onDataChanged = () => { if (isMountedRef.current) fetchTransactions(true); };
+    window.addEventListener('data-changed', onDataChanged);
+    return () => window.removeEventListener('data-changed', onDataChanged);
+  }, [fetchTransactions]);
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-midnight-950">
+    <div className="min-h-screen">
       <Header />
       <main className="w-full py-6 px-4 sm:px-6 lg:px-8">
         {error && (

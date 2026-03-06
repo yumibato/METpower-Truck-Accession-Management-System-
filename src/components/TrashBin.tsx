@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Trash2, RotateCcw, Trash, ChevronLeft, ChevronRight, Search, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Trash2, RotateCcw, Trash, ChevronLeft, ChevronRight, Search, AlertCircle, Calendar, Weight } from 'lucide-react';
 import Header from './Header';
 
 interface Transaction {
@@ -26,16 +26,13 @@ export default function TrashBin() {
   const [pageSize] = useState(20);
   const [total, setTotal] = useState(0);
   const [permanentLoading, setPermanentLoading] = useState(false);
+  const isMountedRef = useRef(true);
 
   const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '') || 'http://localhost:3001';
 
-  // Fetch trash data
-  useEffect(() => {
-    loadTrash();
-  }, [page, sortBy, sortDir]);
-
-  const loadTrash = async () => {
-    setLoading(true);
+  const loadTrash = useCallback(async (silent = false) => {
+    if (!isMountedRef.current) return;
+    if (!silent) setLoading(true);
     setError('');
     try {
       const query = new URLSearchParams({
@@ -49,16 +46,30 @@ export default function TrashBin() {
       if (!response.ok) throw new Error('Failed to fetch trash');
 
       const data = await response.json();
+      if (!isMountedRef.current) return;
       setTrash(data.rows || []);
       setTotal(data.total || 0);
-      setSelectedIds(new Set()); // Clear selection on new page
     } catch (err: any) {
-      setError(err.message || 'Failed to load trash');
-      setTrash([]);
+      if (isMountedRef.current) setError(err.message || 'Failed to load trash');
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
-  };
+  }, [page, pageSize, sortBy, sortDir, apiBaseUrl]);
+
+  // Initial load + fallback poll every 20s
+  useEffect(() => {
+    isMountedRef.current = true;
+    loadTrash();
+    const iv = setInterval(() => loadTrash(true), 20000);
+    return () => { isMountedRef.current = false; clearInterval(iv); };
+  }, [loadTrash]);
+
+  // Immediate refresh on any live DB change from socket
+  useEffect(() => {
+    const onDataChanged = () => loadTrash(true);
+    window.addEventListener('data-changed', onDataChanged);
+    return () => window.removeEventListener('data-changed', onDataChanged);
+  }, [loadTrash]);
 
   const handleRestore = async (id: number) => {
     try {
@@ -156,14 +167,54 @@ export default function TrashBin() {
     return date.toLocaleDateString();
   };
 
+  const formatExactDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+      ' · ' + date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  };
+
+  const formatTxDate = (dateStr: string) => {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const formatWeight = (w: any) => {
+    if (w === null || w === undefined || w === '') return '-';
+    const num = Number(w);
+    if (isNaN(num)) return String(w);
+    return num.toLocaleString() + ' kg';
+  };
+
+  const getStatusBadge = (status: any) => {
+    if (!status) return <span className="text-gray-400 dark:text-enterprise-muted text-xs">-</span>;
+    const s = String(status).toLowerCase();
+    const colors = s === 'valid' || s.includes('complet') || s.includes('approv') || s.includes('done')
+      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+      : s.includes('pending') || s.includes('process')
+      ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+      : s.includes('reject') || s.includes('cancel')
+      ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+      : s === 'void'
+      ? 'bg-slate-100 text-slate-600 dark:bg-slate-800/40 dark:text-slate-400'
+      : 'bg-gray-100 text-gray-700 dark:bg-midnight-700 dark:text-enterprise-muted';
+    return (
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors}`}>
+        {status}
+      </span>
+    );
+  };
+
   const totalPages = Math.ceil(total / pageSize);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-midnight-950">
+    <div className="min-h-screen">
       <Header />
       {/* Header */}
-      <div className="bg-white dark:bg-midnight-800 border-b border-gray-200 dark:border-midnight-700 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div className="glass-nav border-b border-black/5 dark:border-white/8 sticky top-16 z-10">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
               <Trash2 className="h-8 w-8 text-red-500 dark:text-status-error" />
@@ -209,7 +260,7 @@ export default function TrashBin() {
 
       {/* Error Message */}
       {error && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 mt-3">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-3 mt-3">
           <div className="bg-red-50 dark:bg-status-error/20 border border-red-200 dark:border-status-error/30 rounded-lg p-4 flex items-start space-x-3">
             <AlertCircle className="h-5 w-5 text-red-500 dark:text-status-error flex-shrink-0 mt-0.5" />
             <p className="text-sm text-red-700 dark:text-status-error">{error}</p>
@@ -219,7 +270,7 @@ export default function TrashBin() {
 
       {/* Loading State */}
       {loading && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             <p className="mt-2 text-gray-600 dark:text-enterprise-muted">Loading trash...</p>
@@ -229,7 +280,7 @@ export default function TrashBin() {
 
       {/* Empty State */}
       {!loading && trash.length === 0 && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center">
             <Trash2 className="mx-auto h-12 w-12 text-gray-400 dark:text-enterprise-muted" />
             <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-enterprise-text">Your trash is empty</h3>
@@ -242,12 +293,12 @@ export default function TrashBin() {
 
       {/* Trash Table */}
       {!loading && trash.length > 0 && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="bg-white dark:bg-midnight-800 rounded-lg shadow overflow-hidden">
-            <table className="w-full">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
+          <div className="glass-card rounded-xl overflow-hidden overflow-x-auto">
+            <table className="w-full min-w-[1100px]">
               <thead className="bg-gray-50 dark:bg-midnight-750 border-b border-gray-200 dark:border-midnight-700">
                 <tr>
-                  <th className="px-6 py-3 text-left">
+                  <th className="px-4 py-3 text-left w-10">
                     <input
                       type="checkbox"
                       checked={selectedIds.size === trash.length && trash.length > 0}
@@ -256,8 +307,8 @@ export default function TrashBin() {
                     />
                   </th>
                   <th
-                    onClick={() => handleSort('trans_no')}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-enterprise-silver uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-midnight-700"
+                    onClick={() => toggleSort('trans_no')}
+                    className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-enterprise-silver uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-midnight-700"
                   >
                     <div className="flex items-center space-x-1">
                       <span>Transaction</span>
@@ -266,18 +317,46 @@ export default function TrashBin() {
                       )}
                     </div>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-enterprise-silver uppercase tracking-wider">
+                  <th
+                    onClick={() => toggleSort('transac_date')}
+                    className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-enterprise-silver uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-midnight-700"
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Tx Date</span>
+                      {sortBy === 'transac_date' && (
+                        <span className="text-blue-600 dark:text-neon-cyan-glow">{sortDir === 'DESC' ? '↓' : '↑'}</span>
+                      )}
+                    </div>
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-enterprise-silver uppercase tracking-wider">
                     Driver
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-enterprise-silver uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-enterprise-silver uppercase tracking-wider">
+                    Plate / Type
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-enterprise-silver uppercase tracking-wider">
                     Product
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-enterprise-silver uppercase tracking-wider">
-                    Plate
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-enterprise-silver uppercase tracking-wider">
+                    Barge Details
+                  </th>
+                  <th
+                    onClick={() => toggleSort('gross_weight')}
+                    className="px-4 py-3 text-right text-xs font-medium text-gray-700 dark:text-enterprise-silver uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-midnight-700"
+                  >
+                    <div className="flex items-center justify-end space-x-1">
+                      <span>Gross Wt.</span>
+                      {sortBy === 'gross_weight' && (
+                        <span className="text-blue-600 dark:text-neon-cyan-glow">{sortDir === 'DESC' ? '↓' : '↑'}</span>
+                      )}
+                    </div>
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-enterprise-silver uppercase tracking-wider">
+                    Status
                   </th>
                   <th
                     onClick={() => toggleSort('deleted_at')}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-enterprise-silver uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-midnight-700"
+                    className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-enterprise-silver uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-midnight-700"
                   >
                     <div className="flex items-center space-x-1">
                       <span>Deleted</span>
@@ -286,7 +365,7 @@ export default function TrashBin() {
                       )}
                     </div>
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 dark:text-enterprise-silver uppercase tracking-wider">
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 dark:text-enterprise-silver uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -294,7 +373,7 @@ export default function TrashBin() {
               <tbody className="divide-y divide-gray-200 dark:divide-midnight-700">
                 {trash.map((item) => (
                   <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-midnight-750 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <input
                         type="checkbox"
                         checked={selectedIds.has(item.id)}
@@ -302,36 +381,60 @@ export default function TrashBin() {
                         className="h-4 w-4 rounded border-gray-300 dark:border-midnight-600 text-blue-600 focus:ring-blue-500 cursor-pointer dark:bg-midnight-700"
                       />
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-medium text-gray-900 dark:text-enterprise-silver">{item.trans_no || '-'}</span>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="text-sm font-semibold text-gray-900 dark:text-enterprise-silver">{item.trans_no || '-'}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-600 dark:text-enterprise-muted">{item.driver || '-'}</span>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center space-x-1 text-sm text-gray-600 dark:text-enterprise-muted">
+                        <Calendar className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                        <span>{formatTxDate(item.transac_date)}</span>
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="text-sm text-gray-700 dark:text-enterprise-silver">{item.driver || '-'}</span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-800 dark:text-enterprise-silver">{item.plate || '-'}</div>
+                      {item.type_veh && (
+                        <div className="text-xs text-gray-500 dark:text-enterprise-muted mt-0.5">{item.type_veh}</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <span className="text-sm text-gray-600 dark:text-enterprise-muted">{item.product || '-'}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-600 dark:text-enterprise-muted">{item.plate || '-'}</span>
+                    <td className="px-4 py-3">
+                      <span className="text-sm text-gray-500 dark:text-enterprise-muted">{item.barge_details || '-'}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-500 dark:text-enterprise-muted">{formatDate(item.deleted_at)}</span>
+                    <td className="px-4 py-3 whitespace-nowrap text-right">
+                      <div className="flex items-center justify-end space-x-1 text-sm font-medium text-gray-700 dark:text-enterprise-silver">
+                        <Weight className="h-3.5 w-3.5 opacity-50 shrink-0" />
+                        <span>{formatWeight(item.gross_weight)}</span>
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end space-x-2">
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {getStatusBadge(item.status)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-700 dark:text-enterprise-silver">{formatDate(item.deleted_at)}</div>
+                      <div className="text-xs text-gray-400 dark:text-enterprise-muted mt-0.5">{formatExactDate(item.deleted_at)}</div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-right">
+                      <div className="flex items-center justify-end space-x-1">
                         <button
                           onClick={() => handleRestore(item.id)}
-                          title="Restore"
-                          className="inline-flex items-center px-2 py-1 rounded text-sm font-medium text-blue-600 dark:text-neon-cyan-glow hover:bg-blue-50 dark:hover:bg-neon-cyan-glow/20 transition-colors"
+                          title="Restore transaction"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-blue-600 dark:text-neon-cyan-glow bg-blue-50 dark:bg-neon-cyan-glow/10 hover:bg-blue-100 dark:hover:bg-neon-cyan-glow/20 transition-colors"
                         >
-                          <RotateCcw className="h-4 w-4" />
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          <span>Restore</span>
                         </button>
                         <button
                           onClick={() => handlePermanentDelete(item.id)}
                           title="Permanently delete"
-                          className="inline-flex items-center px-2 py-1 rounded text-sm font-medium text-red-600 dark:text-status-error hover:bg-red-50 dark:hover:bg-status-error/20 transition-colors"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-600 dark:text-status-error bg-red-50 dark:bg-status-error/10 hover:bg-red-100 dark:hover:bg-status-error/20 transition-colors"
                         >
-                          <Trash className="h-4 w-4" />
+                          <Trash className="h-3.5 w-3.5" />
+                          <span>Delete</span>
                         </button>
                       </div>
                     </td>

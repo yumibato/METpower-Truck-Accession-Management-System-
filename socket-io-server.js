@@ -186,8 +186,18 @@ export async function notifyActivity(action, transaction, username, pool) {
     console.error('❌ Error saving notification to database:', error);
   }
 
-  // Broadcast to all connected clients
+  // Broadcast notification to all connected clients
   broadcastNotification(notification);
+
+  // Also emit a lightweight data_changed event so UI components can
+  // refresh immediately without needing to subscribe to full notifications
+  if (io) {
+    io.emit('data_changed', {
+      action,
+      trans_id: transaction.id,
+      timestamp: new Date().toISOString(),
+    });
+  }
 }
 
 /**

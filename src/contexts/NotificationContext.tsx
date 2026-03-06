@@ -51,15 +51,15 @@ const getIcon = (type: Notification['type']) => {
 const getNotificationStyles = (type: Notification['type']) => {
   switch (type) {
     case 'success':
-      return 'bg-green-50 border-green-200 text-green-800';
+      return 'bg-[#0a1a2e] border-emerald-500/30 text-emerald-300 shadow-emerald-500/10';
     case 'error':
-      return 'bg-red-50 border-red-200 text-red-800';
+      return 'bg-[#0a1a2e] border-red-500/30 text-red-300 shadow-red-500/10';
     case 'warning':
-      return 'bg-yellow-50 border-yellow-200 text-yellow-800';
+      return 'bg-[#0a1a2e] border-amber-500/30 text-amber-300 shadow-amber-500/10';
     case 'info':
-      return 'bg-blue-50 border-blue-200 text-blue-800';
+      return 'bg-[#0a1a2e] border-blue-500/30 text-blue-300 shadow-blue-500/10';
     default:
-      return 'bg-gray-50 border-gray-200 text-gray-800';
+      return 'bg-[#0a1a2e] border-white/10 text-white/70 shadow-black/20';
   }
 };
 
@@ -91,9 +91,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onClo
   return (
     <div
       onClick={handleClick}
-      className={`max-w-sm w-full border rounded-lg shadow-lg p-4 transition-all transform
+      className={`max-w-sm w-full border rounded-xl shadow-2xl p-4 transition-all transform backdrop-blur-xl
         ${getNotificationStyles(notification.type)} 
-        ${notification.clickable ? 'cursor-pointer hover:shadow-xl hover:scale-105' : ''}
+        ${notification.clickable ? 'cursor-pointer hover:brightness-110 hover:scale-[1.02]' : ''}
         animate-in slide-in-from-right-full duration-300`}
     >
       <div className="flex items-start">
@@ -179,27 +179,29 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     socketInstance.on('new_notification', (notification: Omit<Notification, 'id'>) => {
       console.log('📬 Received real-time notification:', notification);
       
-      // Add notification with unique ID
       const id = Date.now().toString() + Math.random().toString(36).substring(2);
       const newNotification: Notification = {
         id,
         autoHide: notification.autoHide ?? true,
-        duration: notification.duration ?? 5000,
+        duration: notification.duration ?? 6000,
         ...notification,
       };
       
-      setNotifications(prev => [newNotification, ...prev.slice(0, 4)]); // Keep max 5 notifications
+      setNotifications(prev => [newNotification, ...prev.slice(0, 4)]);
       
-      // Dispatch custom event for unread count update
+      // Dispatch events so all components can refresh immediately
       window.dispatchEvent(new CustomEvent('notification-received', { detail: notification }));
+      window.dispatchEvent(new CustomEvent('data-changed', { detail: notification }));
       
-      // Play notification sound (optional)
       try {
-        const audio = new Audio('/notification.mp3'); // You can add a notification sound file
-        audio.play().catch(() => {/* Ignore if sound fails */});
-      } catch (err) {
-        // Ignore sound errors
-      }
+        const audio = new Audio('/notification.mp3');
+        audio.play().catch(() => {});
+      } catch { /* ignore */ }
+    });
+
+    // Listen for lightweight data_changed events (emitted on every DB mutation)
+    socketInstance.on('data_changed', (payload: { action: string; trans_id: number; timestamp: string }) => {
+      window.dispatchEvent(new CustomEvent('data-changed', { detail: payload }));
     });
 
     setSocket(socketInstance);

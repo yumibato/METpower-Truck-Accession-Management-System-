@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import { Calendar, RotateCcw } from 'lucide-react';
+import { Calendar, RotateCcw, Bot } from 'lucide-react';
 import { useDarkMode } from '../../hooks/useDarkMode';
 
 interface Row {
@@ -117,9 +117,22 @@ export default function WeightRatio() {
       )}
 
       <div className="bg-white dark:bg-midnight-900 rounded-xl border border-gray-200 dark:border-midnight-600 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 dark:border-midnight-700">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Tare vs Net Weight Ratio (% of Gross)</h3>
-          <p className="text-xs text-gray-400 dark:text-enterprise-muted mt-0.5">Stacked at 100% — green = payload, amber = container/vehicle weight.</p>
+        <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100 dark:border-midnight-700">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Tare vs Net Weight Ratio (% of Gross)</h3>
+            <p className="text-xs text-gray-400 dark:text-enterprise-muted mt-0.5">Stacked at 100% — green = payload, amber = container/vehicle weight.</p>
+          </div>
+          <button
+            onClick={() => {
+              const avgTarePct = data.length ? (data.reduce((s, d) => s + (d.gross > 0 ? d.tare / d.gross * 100 : 0), 0) / data.length).toFixed(1) : 'n/a';
+              const avgNetPct = data.length ? (data.reduce((s, d) => s + (d.gross > 0 ? d.net / d.gross * 100 : 0), 0) / data.length).toFixed(1) : 'n/a';
+              window.dispatchEvent(new CustomEvent('explain-chart', { detail: { message: `Explain the Tare vs Net Weight Ratio chart (${startDate} to ${endDate}). Average net payload: ${avgNetPct}% of gross. Average tare (vehicle weight): ${avgTarePct}% of gross. What does this ratio indicate about payload efficiency, is the tare weight normal or excessive, are there any dates with unusual ratios, and what can be done to improve net payload yield?` } }));
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800/50 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors shrink-0 ml-3"
+            title="Ask AI to explain this chart"
+          >
+            <Bot className="w-3.5 h-3.5" /> Explain
+          </button>
         </div>
 
         {loading ? (

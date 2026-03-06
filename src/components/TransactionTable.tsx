@@ -1239,11 +1239,11 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-midnight-950 dark:via-midnight-950 dark:to-midnight-950">
-      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="min-h-screen">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
         {/* Header Section */}
         <div className="mb-6">
-          <div className="bg-white dark:bg-midnight-800 rounded-xl shadow-lg border border-gray-200 dark:border-midnight-700 overflow-hidden">
+          <div className="glass-card rounded-xl overflow-hidden">
             <div className="p-6">
               {/* Title Row */}
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6">
@@ -1575,8 +1575,8 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
 
         {/* Bulk Status Update Modal */}
         {showBulkStatusModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-midnight-800 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="glass-card rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4">
               <h2 className="text-xl font-bold text-gray-900 dark:text-enterprise-text mb-4">Update Status</h2>
               <p className="text-gray-600 dark:text-enterprise-muted mb-4">Update status for {selectedIds.size} selected transaction(s)</p>
               
@@ -1851,13 +1851,13 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
         {/* Export Options Modal */}
         {showExportModal && (
           <div 
-            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
           >
             <div 
-              className="bg-white dark:bg-midnight-800 rounded-xl shadow-2xl max-w-md w-full max-h-screen overflow-y-auto"
+              className="glass-card rounded-2xl shadow-2xl max-w-md w-full max-h-screen overflow-y-auto"
               style={{
                 transform: `translate(${dragPosition.x}px, ${dragPosition.y}px)`,
                 transition: isDragging ? 'none' : 'transform 0.2s ease-out'

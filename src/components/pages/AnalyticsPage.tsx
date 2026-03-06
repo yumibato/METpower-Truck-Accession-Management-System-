@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+﻿import { useRef, useState, useEffect } from 'react';
 import {
   TrendingUp, BarChart2, CalendarDays, Package, CheckCircle2,
   User, Truck, Navigation, LayoutGrid, Scale, Timer,
@@ -81,12 +81,12 @@ export default function AnalyticsPage() {
   const handleDragEnd = () => { setDragOverIndex(null); dragIndex.current = null; };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-midnight-950">
+    <div className="min-h-screen">
       <Header />
       <main className="w-full py-6 px-4 sm:px-6 lg:px-8">
         <div className="space-y-6">
           {/* Analytics sub-navigation */}
-          <div className="bg-white dark:bg-midnight-900 rounded-xl border border-gray-200 dark:border-midnight-600 shadow-sm overflow-hidden">
+          <div className="bg-white dark:bg-midnight-800 rounded-xl border border-gray-200 dark:border-midnight-700 shadow-sm overflow-hidden">
             <div className="flex items-stretch">
               {/* Scrollable tab list */}
               <div className="overflow-x-auto flex-1">
@@ -107,7 +107,7 @@ export default function AnalyticsPage() {
                         className={`relative group border-b-2 font-medium text-sm whitespace-nowrap transition-all cursor-grab active:cursor-grabbing
                           ${minimized ? 'py-3 px-3' : 'py-3 px-4'}
                           ${isActive
-                            ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                            ? 'border-blue-500 text-blue-600 dark:text-neon-cyan-glow'
                             : 'border-transparent text-gray-500 dark:text-enterprise-muted hover:text-gray-700 dark:hover:text-enterprise-silver'}
                           ${isDragOver ? 'border-l-2 border-l-blue-400' : ''}`}
                       >
@@ -137,7 +137,7 @@ export default function AnalyticsPage() {
               <button
                 onClick={() => setMinimized(!minimized)}
                 title={minimized ? 'Expand tab labels' : 'Minimize to icons'}
-                className="flex-shrink-0 flex items-center px-3 border-l border-gray-200 dark:border-gray-700 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
+                className="flex-shrink-0 flex items-center px-3 border-l border-gray-200 dark:border-midnight-700 text-gray-400 hover:text-blue-500 dark:hover:text-neon-cyan-glow transition-colors"
               >
                 {minimized
                   ? <PanelLeftOpen  className="w-4 h-4" />
