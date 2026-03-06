@@ -236,7 +236,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
   }, []);
 
   const handleNavigate = useCallback((trans_id: number) => {
-    navigate(`/activity-log?trans_id=${trans_id}`);
+    navigate(`/transactions?trans_id=${trans_id}`);
   }, [navigate]);
 
   return (

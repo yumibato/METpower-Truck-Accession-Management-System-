@@ -206,6 +206,12 @@ export default function NotificationHistory({ isOpen, onClose, onUnreadCountChan
     setExpandedId(prev => prev === notification.id ? null : notification.id);
   };
 
+  const handleViewTransaction = (e: React.MouseEvent, notification: Notification) => {
+    e.stopPropagation();
+    navigate(`/transactions?trans_id=${notification.trans_id}`);
+    onClose();
+  };
+
   const handleViewInLog = (e: React.MouseEvent, notification: Notification) => {
     e.stopPropagation();
     navigate(`/activity-log?trans_id=${notification.trans_id}`);
@@ -499,15 +505,24 @@ export default function NotificationHistory({ isOpen, onClose, onUnreadCountChan
                       )}
                     </div>
 
-                    {/* View in Activity Log button */}
+                    {/* View Transaction + View Activity Log buttons */}
                     {notification.trans_id && (
-                      <button
-                        onClick={(e) => handleViewInLog(e, notification)}
-                        className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-medium text-cyan-400/80 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors border border-cyan-500/15 hover:border-cyan-500/30"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                        View in Activity Log
-                      </button>
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          onClick={(e) => handleViewTransaction(e, notification)}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-medium text-emerald-400/80 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors border border-emerald-500/15 hover:border-emerald-500/30"
+                        >
+                          <Truck className="w-3 h-3" />
+                          View Transaction
+                        </button>
+                        <button
+                          onClick={(e) => handleViewInLog(e, notification)}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-medium text-cyan-400/80 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors border border-cyan-500/15 hover:border-cyan-500/30"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          Activity Log
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}

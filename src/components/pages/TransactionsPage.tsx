@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import TransactionTable from '../TransactionTable';
 import Header from '../Header';
@@ -8,6 +9,9 @@ import { usePersistentState } from '../../hooks/usePersistentState';
 
 export default function TransactionsPage() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const transIdParam = searchParams.get('trans_id');
+  const highlightTransId = transIdParam ? parseInt(transIdParam, 10) : null;
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -86,6 +90,15 @@ export default function TransactionsPage() {
     return () => { isMountedRef.current = false; };
   }, [fetchTransactions]);
 
+  // When a highlight ID arrives from a notification link, jump to page 1 sorted by newest first
+  useEffect(() => {
+    if (highlightTransId) {
+      setSortBy('id');
+      setSortDir('DESC');
+      setPage(1);
+    }
+  }, [highlightTransId]);
+
   // Auto-refresh every 10s as fallback
   useEffect(() => {
     const iv = setInterval(() => { if (isMountedRef.current) fetchTransactions(true); }, 10000);
@@ -128,6 +141,7 @@ export default function TransactionsPage() {
           onDateRangeChange={handleDateRangeChange}
           startDate={startDate}
           endDate={endDate}
+          highlightTransId={highlightTransId}
         />
       </main>
     </div>

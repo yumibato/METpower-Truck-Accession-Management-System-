@@ -42,7 +42,17 @@ export default {
       },
       backgroundImage: {
         'midnight-gradient': 'linear-gradient(to bottom right, #0f172a, #1e293b)',
-      }
+      },
+      keyframes: {
+        'pulse-once': {
+          '0%':   { boxShadow: '0 0 0 0 rgba(34,211,238,0.5)' },
+          '50%':  { boxShadow: '0 0 0 6px rgba(34,211,238,0.15)' },
+          '100%': { boxShadow: '0 0 0 0 rgba(34,211,238,0)' },
+        },
+      },
+      animation: {
+        'pulse-once': 'pulse-once 1.2s ease-out 1',
+      },
     },
   },
   plugins: [],

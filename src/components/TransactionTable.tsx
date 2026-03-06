@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   Download,
   Eye,
@@ -186,6 +186,7 @@ interface TransactionTableProps {
   onDateRangeChange?: (startDate: Date | null, endDate: Date | null) => void;
   startDate?: Date | null;
   endDate?: Date | null;
+  highlightTransId?: number | null;
 }
 
 const TransactionTable: React.FC<TransactionTableProps> = ({
@@ -207,8 +208,19 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
   refreshing,
   onDateRangeChange,
   startDate,
-  endDate
+  endDate,
+  highlightTransId,
 }) => {
+  const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
+
+  // Scroll to highlighted row after data loads
+  useEffect(() => {
+    if (!loading && highlightTransId && highlightRowRef.current) {
+      setTimeout(() => {
+        highlightRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 200);
+    }
+  }, [loading, highlightTransId, transactions]);
   const toast = useToast();
   // Simplified search state - just debounce and send to server
   const [localSearchTerm, setLocalSearchTerm] = useState(propSearchTerm || '');
@@ -1671,11 +1683,16 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-midnight-700">
-                  {displayData.map((transaction: Transaction, index: number) => (
+                  {displayData.map((transaction: Transaction, index: number) => {
+                    const isHighlighted = !!highlightTransId && transaction.id === highlightTransId;
+                    return (
                     <tr 
-                      key={transaction.id} 
+                      key={transaction.id}
+                      ref={isHighlighted ? highlightRowRef : undefined}
                       className={`hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 dark:hover:from-midnight-800/50 dark:hover:to-midnight-800/50 transition-all duration-200 ${
-                        index % 2 === 0 ? 'bg-white dark:bg-midnight-800' : 'bg-gray-50/50 dark:bg-midnight-800'
+                        isHighlighted
+                          ? 'bg-cyan-500/10 dark:bg-cyan-500/10 ring-1 ring-inset ring-cyan-400/40 shadow-[0_0_0_1px_rgba(34,211,238,0.25)] animate-pulse-once'
+                          : index % 2 === 0 ? 'bg-white dark:bg-midnight-800' : 'bg-gray-50/50 dark:bg-midnight-800'
                       }`}
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-left text-sm font-medium">
@@ -1736,7 +1753,8 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                         </td>
                       ))}
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
