@@ -37,13 +37,13 @@ function App() {
       <AuthProvider>
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <NotificationProvider>
-            <div className="relative min-h-screen bg-[#060d1f] transition-colors duration-200">
+            <div className="relative min-h-screen theme-root transition-colors duration-300">
 
               {/* ── Global ambient glow orbs ── */}
               <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-                <div className="absolute -top-64 -left-64 w-[800px] h-[800px] rounded-full bg-blue-600/10 blur-[160px]" />
-                <div className="absolute -bottom-32 -right-32 w-[600px] h-[600px] rounded-full bg-cyan-500/8 blur-[130px]" />
-                <div className="absolute top-1/2 -translate-y-1/2 left-1/4 w-[400px] h-[400px] rounded-full bg-indigo-600/7 blur-[110px]" />
+                <div className="absolute -top-64 -left-64 w-[800px] h-[800px] rounded-full bg-blue-600/10 blur-[160px] dark:opacity-100 opacity-40" />
+                <div className="absolute -bottom-32 -right-32 w-[600px] h-[600px] rounded-full bg-cyan-500/8 blur-[130px] dark:opacity-100 opacity-30" />
+                <div className="absolute top-1/2 -translate-y-1/2 left-1/4 w-[400px] h-[400px] rounded-full bg-indigo-600/7 blur-[110px] dark:opacity-100 opacity-20" />
               </div>
 
               <div className="relative z-10">

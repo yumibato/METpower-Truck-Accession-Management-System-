@@ -425,6 +425,95 @@ sql.connect(config)
     } catch (tblErr) {
       console.warn('⚠️  Could not verify notifications table:', tblErr.message);
     }
+
+    // ── Auto-create db_change_log table if it doesn't exist ──────────────
+    try {
+      await pool.request().query(`
+        IF NOT EXISTS (SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[db_change_log]') AND type = 'U')
+        BEGIN
+          CREATE TABLE [dbo].[db_change_log] (
+            [id]           BIGINT IDENTITY(1,1) PRIMARY KEY,
+            [table_name]   NVARCHAR(100)  NOT NULL,
+            [action]       NVARCHAR(10)   NOT NULL,
+            [entity_id]    NVARCHAR(100)  NULL,
+            [entity_label] NVARCHAR(500)  NULL,
+            [old_value]    NVARCHAR(MAX)  NULL,
+            [new_value]    NVARCHAR(MAX)  NULL,
+            [priority]     NVARCHAR(10)   NOT NULL DEFAULT 'normal',
+            [is_processed] BIT            NOT NULL DEFAULT 0,
+            [created_at]   DATETIME2      NOT NULL DEFAULT GETDATE()
+          );
+          CREATE INDEX IX_db_change_log_proc ON [dbo].[db_change_log]([is_processed],[created_at]);
+          PRINT 'db_change_log table created';
+        END
+      `);
+      console.log('✅ db_change_log table ready.');
+    } catch (clErr) {
+      console.warn('⚠️  Could not verify db_change_log table:', clErr.message);
+    }
+
+    // ── Auto-create / refresh transac observer trigger ───────────────────
+    try {
+      await pool.request().query(`
+        CREATE OR ALTER TRIGGER [dbo].[trg_transac_observer]
+        ON [dbo].[transac]
+        AFTER INSERT, UPDATE, DELETE
+        AS
+        BEGIN
+          SET NOCOUNT ON;
+          DECLARE @action       NVARCHAR(10),
+                  @entity_id    NVARCHAR(100),
+                  @entity_label NVARCHAR(500),
+                  @old_val      NVARCHAR(MAX),
+                  @new_val      NVARCHAR(MAX),
+                  @priority     NVARCHAR(10);
+
+          SET @action = CASE
+            WHEN EXISTS(SELECT 1 FROM inserted) AND EXISTS(SELECT 1 FROM deleted) THEN 'UPDATE'
+            WHEN EXISTS(SELECT 1 FROM inserted) THEN 'INSERT'
+            ELSE 'DELETE'
+          END;
+
+          IF @action IN ('INSERT','UPDATE')
+          BEGIN
+            SELECT TOP 1
+              @entity_id    = CAST(i.id AS NVARCHAR(100)),
+              @entity_label = ISNULL(i.trans_no, '#' + CAST(i.id AS NVARCHAR(100)))
+                              + ' | Plate: '  + ISNULL(i.plate, '?')
+                              + ' | Driver: ' + ISNULL(i.driver, '?')
+            FROM inserted i;
+            SET @new_val = (SELECT TOP 1 id,trans_no,plate,driver,status,gross_weight,net_weight,tare_weight FROM inserted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+          END
+
+          IF @action IN ('UPDATE','DELETE')
+          BEGIN
+            IF @entity_id IS NULL
+              SELECT TOP 1
+                @entity_id    = CAST(d.id AS NVARCHAR(100)),
+                @entity_label = ISNULL(d.trans_no, '#' + CAST(d.id AS NVARCHAR(100)))
+                                + ' | Plate: '  + ISNULL(d.plate, '?')
+                                + ' | Driver: ' + ISNULL(d.driver, '?')
+              FROM deleted d;
+            SET @old_val = (SELECT TOP 1 id,trans_no,plate,driver,status,gross_weight,net_weight,tare_weight FROM deleted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+          END
+
+          SET @priority = CASE WHEN @action = 'DELETE' THEN 'critical' ELSE 'normal' END;
+
+          BEGIN TRY
+            INSERT INTO [dbo].[db_change_log]
+              (table_name, action, entity_id, entity_label, old_value, new_value, priority)
+            VALUES
+              ('transac', @action, @entity_id, @entity_label, @old_val, @new_val, @priority);
+          END TRY
+          BEGIN CATCH
+            -- Non-fatal: swallow so the original DML still succeeds
+          END CATCH
+        END
+      `);
+      console.log('✅ trg_transac_observer trigger ready.');
+    } catch (trgErr) {
+      console.warn('⚠️  Could not create transac trigger:', trgErr.message);
+    }
     // ─────────────────────────────────────────────────────────────────────
     
     // Login endpoint with database-driven authentication
@@ -1091,7 +1180,7 @@ sql.connect(config)
     // Mark all notifications as read
     app.put('/api/notifications/mark-all-read', async (req, res) => {
       try {
-        const userId = req.body.user_id ? parseInt(req.body.user_id) : null;
+        const userId = req.body?.user_id ? parseInt(req.body.user_id) : null;
 
         const request = pool.request();
         

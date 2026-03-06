@@ -125,11 +125,7 @@ async function _pollOnce() {
 
     // Process each row — persist to notifications table then broadcast
     for (const row of rows) {
-      const tbl = (row.table_name || '').toLowerCase();
-      // transac notifications are already persisted by notifyActivity() in socket-io-server.js
-      if (tbl !== 'transac') {
-        await _saveNotification(row);
-      }
+      await _saveNotification(row);
       _broadcast(row);
     }
 
@@ -152,18 +148,54 @@ async function _pollOnce() {
 
 async function _saveNotification(row) {
   try {
-    const title    = _buildTitle(row);
+    const title      = _buildTitle(row);
     const tableLabel = _tableFriendlyName(row.table_name);
-    const message  = row.entity_label || `${tableLabel} #${row.entity_id}`;
-    const notifType = ACTION_TYPE[row.action] || PRIORITY_TYPE[row.priority] || 'info';
-    const metadata = JSON.stringify({
+    const notifType  = ACTION_TYPE[row.action] || PRIORITY_TYPE[row.priority] || 'info';
+    const tbl        = (row.table_name || '').toLowerCase();
+
+    // For transac rows: parse new_value JSON so the UI can display rich fields
+    // instead of showing a raw JSON dump.
+    let enriched = {
       table:     row.table_name,
       entity_id: String(row.entity_id || ''),
-      old_value: row.old_value || null,
-      new_value: row.new_value || null,
-    });
+    };
+    let message = row.entity_label || `${tableLabel} #${row.entity_id}`;
+
+    if (tbl === 'transac') {
+      const src = row.new_value || row.old_value || null;
+      if (src) {
+        try {
+          const parsed = JSON.parse(src);
+          const plate  = parsed.plate || null;
+          const driver = parsed.driver || null;
+          if (plate)              enriched.plate        = plate;
+          if (driver)             enriched.driver       = driver;
+          if (parsed.status)      enriched.trans_status = parsed.status;
+          if (parsed.net_weight != null)   enriched.net_weight   = String(parsed.net_weight);
+          if (parsed.gross_weight != null) enriched.gross_weight = String(parsed.gross_weight);
+          if (parsed.tare_weight != null)  enriched.tare_weight  = String(parsed.tare_weight);
+          if (parsed.product || parsed.product_name) enriched.product = parsed.product || parsed.product_name;
+          if (parsed.trans_no) enriched.trans_no = parsed.trans_no;
+
+          // Build a cleaner message line
+          const parts = [];
+          if (plate)  parts.push(`[${plate}]`);
+          if (driver) parts.push(`Driver: ${driver}`);
+          if (parts.length) message = parts.join(' · ');
+        } catch { /* keep defaults */ }
+      }
+    } else {
+      // For non-transac tables keep old/new for diff display
+      if (row.old_value) enriched.old_value = row.old_value;
+      if (row.new_value) enriched.new_value = row.new_value;
+    }
+
+    const metadata = JSON.stringify(enriched);
 
     const req = _pool.request();
+    // For transac rows, populate trans_id + trans_no columns too
+    const transIdVal  = (tbl === 'transac' && row.entity_id && !isNaN(Number(row.entity_id))) ? Number(row.entity_id) : null;
+    const transNoVal  = enriched.trans_no || null;
     await req
       .input('username', _sql.NVarChar, 'system')
       .input('type',     _sql.NVarChar, notifType)
@@ -173,9 +205,12 @@ async function _saveNotification(row) {
       .input('metadata', _sql.NVarChar, metadata)
       .query(`
         INSERT INTO [FTSS].[dbo].[notifications]
-          ([username], [type], [title], [message], [action], [metadata])
+          ([username], [type], [title], [message], [action], [trans_id], [trans_no], [metadata])
         VALUES
-          (@username, @type, @title, @message, @action, @metadata)
+          (@username, @type, @title, @message, @action,
+           ${transIdVal !== null ? transIdVal : 'NULL'},
+           ${transNoVal ? `'${transNoVal.replace(/'/g, "''")}'` : 'NULL'},
+           @metadata)
       `);
 
     console.log(`[Observer] 💾 Saved notification for ${row.table_name} #${row.entity_id}`);
@@ -220,15 +255,6 @@ function _broadcast(row) {
     priority:  row.priority,
   });
 
-  // ── For dbo.transac: Node.js API routes already send the toast via
-  //    notifyActivity(), so we skip the toast here to avoid duplicates.
-  //    We only send a toast for non-transac table changes (trucks, drivers,
-  //    products, users) which have no Node.js-side notification handler.
-  if (tbl === 'transac') {
-    console.log(`[Observer] 🔄 data_changed emitted for transac id=${row.entity_id} (no duplicate toast)`);
-    return;
-  }
-
   const title   = _buildTitle(row);
   const message = row.entity_label || `${tableLabel} #${row.entity_id}`;
 
@@ -270,7 +296,7 @@ function _buildTitle(row) {
     users:    { INSERT: '🔒', UPDATE: '🔒', DELETE: '🔒' },
   };
   const verbs = {
-    INSERT: 'Created',
+    INSERT: 'Entry',
     UPDATE: row.priority === 'high' || row.priority === 'critical' ? '⚠️ Modified' : 'Updated',
     DELETE: '🚨 Deleted',
   };
@@ -278,6 +304,11 @@ function _buildTitle(row) {
   const tbl  = row.table_name?.toLowerCase() ?? '';
   const icon = icons[tbl]?.[row.action] ?? '🔔';
   const verb = verbs[row.action] ?? 'Changed';
+
+  // Special label for new transac rows (operator-entered truck transaction)
+  if (tbl === 'transac' && row.action === 'INSERT') {
+    return `📋 New Transaction Entry`;
+  }
 
   return `${icon} ${_tableFriendlyName(row.table_name)} ${verb}`;
 }

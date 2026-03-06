@@ -178,3 +178,92 @@ html {
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 .no-transition * { transition: none !important; }
+
+/* ══════════════════════════════════════════════════════════════
+   LIGHT MODE OVERRIDES
+   Applied when html.light — works alongside Tailwind dark: prefix
+   ══════════════════════════════════════════════════════════════ */
+
+/* Root page background */
+html.light .theme-root {
+  background-color: #edf1f8;
+}
+
+/* Navigation */
+html.light .glass-nav {
+  background: rgba(255, 255, 255, 0.94) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07) !important;
+  box-shadow: 0 1px 12px rgba(0, 0, 0, 0.06);
+}
+
+/* Glass cards / panels */
+html.light .glass-card {
+  background: rgba(255, 255, 255, 0.90) !important;
+  border: 1px solid rgba(0, 0, 0, 0.07) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.07), inset 0 1px 0 rgba(255,255,255,0.8) !important;
+}
+html.light .glass {
+  background: rgba(255, 255, 255, 0.72) !important;
+  border: 1px solid rgba(0, 0, 0, 0.07) !important;
+}
+
+/* Hard-coded dark navy backgrounds used across the app */
+html.light [class*="bg-\[#060d1f\]"],
+html.light [class*="bg-\[#06101f\]"],
+html.light [class*="bg-\[#07101e\]"],
+html.light [class*="bg-\[#0a1628\]"],
+html.light [class*="bg-\[#060c1a\]"] {
+  background-color: #f3f6fb !important;
+}
+
+/* Inner card/container dark surfaces */
+html.light [class*="bg-\[#0d1b2e\]"],
+html.light [class*="bg-\[#0c1a2e\]"],
+html.light [class*="bg-\[#091525\]"],
+html.light [class*="bg-\[#0b1829\]"],
+html.light [class*="bg-midnight"] {
+  background-color: #ffffff !important;
+}
+
+/* White/alpha text → slate for light mode */
+html.light .text-white { color: #0f172a !important; }
+html.light .text-white\/90 { color: rgba(15,23,42,0.90) !important; }
+html.light .text-white\/80 { color: rgba(15,23,42,0.80) !important; }
+html.light .text-white\/70 { color: rgba(15,23,42,0.70) !important; }
+html.light .text-white\/60 { color: rgba(15,23,42,0.60) !important; }
+html.light .text-white\/55 { color: rgba(15,23,42,0.55) !important; }
+html.light .text-white\/50 { color: rgba(15,23,42,0.50) !important; }
+html.light .text-white\/45 { color: rgba(15,23,42,0.45) !important; }
+html.light .text-white\/40 { color: rgba(15,23,42,0.40) !important; }
+html.light .text-white\/35 { color: rgba(15,23,42,0.35) !important; }
+html.light .text-white\/30 { color: rgba(15,23,42,0.30) !important; }
+html.light .text-white\/25 { color: rgba(15,23,42,0.25) !important; }
+html.light .text-white\/20 { color: rgba(15,23,42,0.20) !important; }
+html.light .text-white\/15 { color: rgba(15,23,42,0.15) !important; }
+html.light .text-white\/10 { color: rgba(15,23,42,0.10) !important; }
+
+/* Alpha borders → subtle light borders */
+html.light .border-white\/8  { border-color: rgba(0,0,0,0.07) !important; }
+html.light .border-white\/10 { border-color: rgba(0,0,0,0.09) !important; }
+html.light .border-white\/12 { border-color: rgba(0,0,0,0.09) !important; }
+html.light .border-white\/15 { border-color: rgba(0,0,0,0.10) !important; }
+html.light .border-white\/20 { border-color: rgba(0,0,0,0.12) !important; }
+
+/* Alpha white bg-tints → slate tints */
+html.light .bg-white\/3  { background-color: rgba(0,0,0,0.02) !important; }
+html.light .bg-white\/4  { background-color: rgba(0,0,0,0.03) !important; }
+html.light .bg-white\/5  { background-color: rgba(0,0,0,0.03) !important; }
+html.light .bg-white\/8  { background-color: rgba(0,0,0,0.04) !important; }
+html.light .bg-white\/10 { background-color: rgba(0,0,0,0.05) !important; }
+
+/* Table rows */
+html.light tr:hover { background-color: rgba(37,99,235,0.04) !important; }
+
+/* Scrollbars for light mode */
+html.light ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.18) !important; }
+html.light ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.30) !important; }
+
+/* Notification panel slide-in */
+html.light [class*="bg-\[#06101f\]"],
+html.light .notification-panel { background: #f3f6fb !important; }
+

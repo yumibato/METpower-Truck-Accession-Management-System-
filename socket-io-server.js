@@ -159,7 +159,7 @@ export async function notifyActivity(action, transaction, username, pool) {
   // Build human-friendly title based on action + status
   let titleText = `Transaction ${config.verb}`;
   if (action === 'CREATE') {
-    titleText = 'New Truck Arrival';
+    titleText = 'New Transaction Entry';
   } else if (action === 'UPDATE' && (transStatus === 'complete' || transStatus === 'completed' || transStatus === 'outbound')) {
     titleText = 'Trip Completed';
     config.icon = '✅';
@@ -222,6 +222,21 @@ export async function notifyActivity(action, transaction, username, pool) {
         (@p_username, @p_type, @p_title, @p_message, @p_action, ${transIdVal !== null ? transIdVal : 'NULL'}, @p_trans_no, @p_metadata)
     `);
     console.log(`\u{1F4BE} Notification saved to database: ${notification.title}`);
+
+    // Pre-mark matching db_change_log rows as processed so the observer
+    // doesn't fire a duplicate toast for API-originated changes
+    if (transIdVal !== null) {
+      try {
+        const ackReq = pool.request();
+        await ackReq.query(`
+          UPDATE [FTSS].[dbo].[db_change_log]
+          SET is_processed = 1
+          WHERE table_name = 'transac'
+            AND entity_id = ${transIdVal}
+            AND is_processed = 0
+        `);
+      } catch (_) { /* non-fatal */ }
+    }
   } catch (error) {
     console.error('\u274C Error saving notification to database:', error.message);
   }

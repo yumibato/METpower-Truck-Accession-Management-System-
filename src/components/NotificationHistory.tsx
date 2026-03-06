@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Bell, CheckCircle, XCircle, AlertCircle, Info, Trash2, CheckCheck, Clock, RefreshCw, ChevronDown, ExternalLink, Truck, User, Package, Tag, Weight, Activity } from 'lucide-react';
+import { X, Bell, CheckCircle, XCircle, AlertCircle, Info, Trash2, CheckCheck, Clock, RefreshCw, ChevronDown, ExternalLink, Truck, User, Package } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -59,6 +59,29 @@ const getUnreadAccent = (type: Notification['type']) => {
     default:        return 'border-l-cyan-400';
   }
 };
+
+const getStatusBadge = (status: string) => {
+  const s = status.toLowerCase();
+  if (s === 'complete' || s === 'completed' || s === 'outbound')
+    return 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25';
+  if (s === 'inbound' || s === 'pending')
+    return 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/25';
+  if (s === 'void' || s === 'cancelled' || s === 'voided')
+    return 'bg-red-500/12 text-red-400 border border-red-500/20';
+  return 'bg-white/8 text-white/50 border border-white/12';
+};
+
+const WeightStat = ({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) => (
+  <div className={`flex flex-col items-center justify-center py-2.5 rounded-xl border ${
+    highlight ? 'bg-emerald-500/8 border-emerald-500/20' : 'bg-white/3 border-white/8'
+  }`}>
+    <span className={`text-sm font-bold font-mono tabular-nums ${highlight ? 'text-emerald-400' : 'text-white/80'}`}>
+      {Number(value).toLocaleString()}
+    </span>
+    <span className={`text-[9px] uppercase tracking-widest mt-0.5 ${highlight ? 'text-emerald-400/60' : 'text-white/30'}`}>{label} kg</span>
+  </div>
+);
+
 
 const getActionLabel = (action: string | null) => {
   if (!action) return null;
@@ -406,126 +429,137 @@ export default function NotificationHistory({ isOpen, onClose, onUnreadCountChan
                 </div>
 
                 {/* Expandable detail panel */}
-                {isExpanded && hasDetails && (
-                  <div className="px-3.5 pb-3.5 pt-0 border-t border-white/8">
-                    <div className="mt-3 rounded-lg bg-black/20 border border-white/8 p-3 space-y-2">
-                      {/* Plate */}
-                      {meta.plate && (
-                        <div className="flex items-center gap-2.5">
-                          <Truck className="w-3.5 h-3.5 text-cyan-400/70 flex-shrink-0" />
-                          <span className="text-[11px] text-white/45 w-14 flex-shrink-0">Plate</span>
-                          <span className="text-xs font-semibold text-white/80 font-mono">{meta.plate}</span>
-                        </div>
-                      )}
-                      {/* Driver */}
-                      {meta.driver && (
-                        <div className="flex items-center gap-2.5">
-                          <User className="w-3.5 h-3.5 text-blue-400/70 flex-shrink-0" />
-                          <span className="text-[11px] text-white/45 w-14 flex-shrink-0">Driver</span>
-                          <span className="text-xs text-white/80">{meta.driver}</span>
-                        </div>
-                      )}
-                      {/* Product */}
-                      {meta.product && (
-                        <div className="flex items-center gap-2.5">
-                          <Package className="w-3.5 h-3.5 text-emerald-400/70 flex-shrink-0" />
-                          <span className="text-[11px] text-white/45 w-14 flex-shrink-0">Product</span>
-                          <span className="text-xs text-white/80">{meta.product}</span>
-                        </div>
-                      )}
-                      {/* Status */}
-                      {meta.trans_status && (
-                        <div className="flex items-center gap-2.5">
-                          <Activity className="w-3.5 h-3.5 text-amber-400/70 flex-shrink-0" />
-                          <span className="text-[11px] text-white/45 w-14 flex-shrink-0">Status</span>
-                          <span className={`text-xs font-semibold capitalize ${
-                            meta.trans_status === 'complete' || meta.trans_status === 'completed'
-                              ? 'text-emerald-400'
-                              : meta.trans_status === 'inbound'
-                              ? 'text-cyan-400'
-                              : 'text-white/70'
-                          }`}>{meta.trans_status}</span>
-                        </div>
-                      )}
-                      {/* Weight */}
-                      {(meta.net_weight || meta.gross_weight) && (
-                        <div className="flex items-center gap-2.5">
-                          <Weight className="w-3.5 h-3.5 text-purple-400/70 flex-shrink-0" />
-                          <span className="text-[11px] text-white/45 w-14 flex-shrink-0">Weight</span>
-                          <span className="text-xs text-white/70 font-mono">
-                            {meta.net_weight ? `Net: ${meta.net_weight} kg` : ''}
-                            {meta.net_weight && meta.gross_weight ? ' · ' : ''}
-                            {meta.gross_weight ? `Gross: ${meta.gross_weight} kg` : ''}
+                {isExpanded && hasDetails && (() => {
+                  const hasTruck  = !!(meta.plate || meta.driver || meta.product || meta.trans_status);
+                  const hasWeight = !!(meta.net_weight || meta.gross_weight || meta.tare_weight);
+                  const hasOldNew = !!(meta.old_value || meta.new_value) && !hasTruck;
+                  return (
+                    <div className="border-t border-white/6 overflow-hidden">
+                      <div className="p-3.5 space-y-3">
+
+                        {/* ── Plate + Status header ─────────────────────── */}
+                        {meta.plate && (
+                          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/4 border border-white/8">
+                            <div className="p-1.5 rounded-lg bg-cyan-500/10 flex-shrink-0">
+                              <Truck className="w-4 h-4 text-cyan-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[10px] text-white/30 uppercase tracking-wider leading-none mb-0.5">Plate No.</p>
+                              <p className="text-base font-bold text-white font-mono tracking-widest leading-none">{meta.plate}</p>
+                            </div>
+                            {meta.trans_status && (
+                              <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg capitalize flex-shrink-0 ${getStatusBadge(meta.trans_status)}`}>
+                                {meta.trans_status}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* ── Driver / Product row ──────────────────────── */}
+                        {(meta.driver || meta.product) && (
+                          <div className={`grid gap-2 ${meta.driver && meta.product ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                            {meta.driver && (
+                              <div className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white/3 border border-white/6 min-w-0">
+                                <User className="w-3.5 h-3.5 text-blue-400/60 flex-shrink-0" />
+                                <div className="min-w-0">
+                                  <p className="text-[9px] text-white/30 uppercase tracking-wider leading-none mb-0.5">Driver</p>
+                                  <p className="text-xs text-white/75 truncate leading-none">{meta.driver}</p>
+                                </div>
+                              </div>
+                            )}
+                            {meta.product && (
+                              <div className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white/3 border border-white/6 min-w-0">
+                                <Package className="w-3.5 h-3.5 text-emerald-400/60 flex-shrink-0" />
+                                <div className="min-w-0">
+                                  <p className="text-[9px] text-white/30 uppercase tracking-wider leading-none mb-0.5">Product</p>
+                                  <p className="text-xs text-white/75 truncate leading-none">{meta.product}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* ── Weight stats ──────────────────────────────── */}
+                        {hasWeight && (
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {meta.gross_weight && <WeightStat label="Gross" value={meta.gross_weight} />}
+                            {meta.tare_weight  && <WeightStat label="Tare"  value={meta.tare_weight} />}
+                            {meta.net_weight   && <WeightStat label="Net"   value={meta.net_weight}  highlight />}
+                          </div>
+                        )}
+
+                        {/* ── Old/New diff for non-transac tables ──────── */}
+                        {hasOldNew && (
+                          <div className="space-y-2">
+                            {meta.old_value && meta.old_value !== 'null' && (() => {
+                              let fields: Record<string, unknown> = {};
+                              try { fields = JSON.parse(meta.old_value as string); } catch { fields = {}; }
+                              return (
+                                <div className="rounded-lg bg-red-500/5 border border-red-500/15 p-2.5">
+                                  <p className="text-[9px] text-red-400/60 uppercase tracking-wider font-semibold mb-1.5">Before</p>
+                                  {Object.entries(fields).filter(([, v]) => v != null && v !== '').map(([k, v]) => (
+                                    <div key={k} className="flex gap-2 text-[11px] leading-relaxed">
+                                      <span className="text-white/30 w-20 flex-shrink-0 capitalize">{k.replace(/_/g, ' ')}</span>
+                                      <span className="text-white/55 font-mono truncate">{String(v)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+                            {meta.new_value && meta.new_value !== 'null' && (() => {
+                              let fields: Record<string, unknown> = {};
+                              try { fields = JSON.parse(meta.new_value as string); } catch { fields = {}; }
+                              return (
+                                <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/15 p-2.5">
+                                  <p className="text-[9px] text-emerald-400/60 uppercase tracking-wider font-semibold mb-1.5">After</p>
+                                  {Object.entries(fields).filter(([, v]) => v != null && v !== '').map(([k, v]) => (
+                                    <div key={k} className="flex gap-2 text-[11px] leading-relaxed">
+                                      <span className="text-white/30 w-20 flex-shrink-0 capitalize">{k.replace(/_/g, ' ')}</span>
+                                      <span className="text-white/55 font-mono truncate">{String(v)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
+
+                        {/* ── Footer: trans_no · actor · time ───────────── */}
+                        <div className="flex items-center gap-2 pt-0.5 flex-wrap">
+                          {(notification.trans_no || meta.trans_no) && (
+                            <span className="text-[10px] font-mono text-cyan-400/60 bg-cyan-500/8 px-1.5 py-0.5 rounded border border-cyan-500/15">
+                              #{notification.trans_no || meta.trans_no}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-white/25">{notification.username}</span>
+                          <span className="text-white/15 text-[10px]">·</span>
+                          <span className="text-[10px] text-white/25 font-mono ml-auto">
+                            {(() => { try { return format(new Date(notification.created_at), 'MMM d, yyyy HH:mm:ss'); } catch { return notification.created_at; } })()}
                           </span>
                         </div>
-                      )}
-                      {/* Table / Entity (from db-observer) */}
-                      {meta.table && (
-                        <div className="flex items-center gap-2.5">
-                          <Tag className="w-3.5 h-3.5 text-amber-400/70 flex-shrink-0" />
-                          <span className="text-[11px] text-white/45 w-14 flex-shrink-0">Source</span>
-                          <span className="text-xs text-white/70 uppercase tracking-wide">{meta.table}</span>
-                          {meta.entity_id && (
-                            <span className="text-[10px] text-white/35 font-mono ml-1">#{meta.entity_id}</span>
-                          )}
-                        </div>
-                      )}
-                      {/* Actor */}
-                      {notification.username && (
-                        <div className="flex items-center gap-2.5">
-                          <User className="w-3.5 h-3.5 text-purple-400/70 flex-shrink-0" />
-                          <span className="text-[11px] text-white/45 w-14 flex-shrink-0">By</span>
-                          <span className="text-xs text-white/70">{notification.username}</span>
-                        </div>
-                      )}
-                      {/* Exact timestamp */}
-                      <div className="flex items-center gap-2.5">
-                        <Clock className="w-3.5 h-3.5 text-white/30 flex-shrink-0" />
-                        <span className="text-[11px] text-white/45 w-14 flex-shrink-0">Time</span>
-                        <span className="text-[11px] text-white/55 font-mono">
-                          {(() => { try { return format(new Date(notification.created_at), 'MMM d, yyyy HH:mm:ss'); } catch { return notification.created_at; } })()}
-                        </span>
                       </div>
-                      {/* Old/New value (db-observer changes) */}
-                      {(meta.old_value || meta.new_value) && (
-                        <div className="mt-2 pt-2 border-t border-white/8 space-y-1.5">
-                          {meta.old_value && meta.old_value !== 'null' && (
-                            <div>
-                              <span className="text-[10px] text-red-400/60 font-medium uppercase tracking-wide">Previous</span>
-                              <p className="text-[11px] text-white/45 font-mono break-all mt-0.5">{meta.old_value}</p>
-                            </div>
-                          )}
-                          {meta.new_value && meta.new_value !== 'null' && (
-                            <div>
-                              <span className="text-[10px] text-emerald-400/60 font-medium uppercase tracking-wide">Updated</span>
-                              <p className="text-[11px] text-white/55 font-mono break-all mt-0.5">{meta.new_value}</p>
-                            </div>
-                          )}
+
+                      {/* ── Action buttons ────────────────────────────── */}
+                      {notification.trans_id && (
+                        <div className="px-3.5 pb-3.5 flex gap-2">
+                          <button
+                            onClick={(e) => handleViewTransaction(e, notification)}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold text-white/70 hover:text-white hover:bg-white/8 rounded-xl transition-all border border-white/10 hover:border-white/20"
+                          >
+                            <Truck className="w-3.5 h-3.5" />
+                            View Transaction
+                          </button>
+                          <button
+                            onClick={(e) => handleViewInLog(e, notification)}
+                            className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold text-white/40 hover:text-cyan-400 hover:bg-cyan-500/8 rounded-xl transition-all border border-white/8 hover:border-cyan-500/20"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       )}
                     </div>
-
-                    {/* View Transaction + View Activity Log buttons */}
-                    {notification.trans_id && (
-                      <div className="mt-2 flex gap-2">
-                        <button
-                          onClick={(e) => handleViewTransaction(e, notification)}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-medium text-emerald-400/80 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors border border-emerald-500/15 hover:border-emerald-500/30"
-                        >
-                          <Truck className="w-3 h-3" />
-                          View Transaction
-                        </button>
-                        <button
-                          onClick={(e) => handleViewInLog(e, notification)}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-medium text-cyan-400/80 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors border border-cyan-500/15 hover:border-cyan-500/30"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          Activity Log
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                  );
+                })()}
               </div>
               );
             })

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, User, Trash2, Zap, Bell, Wifi, WifiOff, BarChart3, FileText, Activity } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
+import { LogOut, User, Trash2, Zap, Bell, Wifi, WifiOff, BarChart3, FileText, Activity, Sun, Moon } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import NotificationHistory from './NotificationHistory';
 import axios from 'axios';
@@ -9,6 +10,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 export default function Header() {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [logoError, setLogoError] = useState(false);
@@ -184,6 +186,24 @@ export default function Header() {
                 </>
               )}
             </div>
+
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="relative w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-200 text-white/50 hover:text-white/90 hover:bg-white/8"
+            >
+              <Moon
+                className={`h-4 w-4 absolute transition-all duration-300 ${
+                  theme === 'dark' ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-50'
+                }`}
+              />
+              <Sun
+                className={`h-4 w-4 absolute transition-all duration-300 ${
+                  theme === 'light' ? 'opacity-100 rotate-0 scale-100 text-amber-400' : 'opacity-0 rotate-90 scale-50'
+                }`}
+              />
+            </button>
 
             {/* Notification Bell */}
             <button
