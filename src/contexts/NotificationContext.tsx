@@ -236,8 +236,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
   }, []);
 
   const handleNavigate = useCallback((trans_id: number) => {
-    // Navigate to Dashboard with Activity Log tab and filtered to specific transaction
-    navigate(`/dashboard?tab=auditlog&trans_id=${trans_id}`);
+    navigate(`/activity-log?trans_id=${trans_id}`);
   }, [navigate]);
 
   return (

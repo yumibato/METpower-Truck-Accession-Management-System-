@@ -394,8 +394,38 @@ const applyInputs = (request, entries) => {
 };
 
 sql.connect(config)
-  .then(pool => {
+  .then(async pool => {
     console.log('✅ Connected to SQL Server successfully!');
+
+    // ── Auto-create notifications table if it doesn't exist ──────────────
+    try {
+      await pool.request().query(`
+        IF NOT EXISTS (SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID(N'[FTSS].[dbo].[notifications]') AND type = 'U')
+        BEGIN
+          CREATE TABLE [FTSS].[dbo].[notifications] (
+            [id]           INT IDENTITY(1,1) PRIMARY KEY,
+            [user_id]      INT NULL,
+            [username]     NVARCHAR(100) NULL,
+            [type]         NVARCHAR(20)  NOT NULL DEFAULT 'info',
+            [title]        NVARCHAR(255) NOT NULL,
+            [message]      NVARCHAR(MAX) NULL,
+            [action]       NVARCHAR(50)  NULL,
+            [trans_id]     INT NULL,
+            [trans_no]     NVARCHAR(100) NULL,
+            [is_read]      BIT DEFAULT 0,
+            [is_dismissed] BIT DEFAULT 0,
+            [created_at]   DATETIME DEFAULT GETDATE(),
+            [read_at]      DATETIME NULL,
+            [metadata]     NVARCHAR(MAX) NULL
+          );
+          PRINT 'notifications table created';
+        END
+      `);
+      console.log('✅ Notifications table ready.');
+    } catch (tblErr) {
+      console.warn('⚠️  Could not verify notifications table:', tblErr.message);
+    }
+    // ─────────────────────────────────────────────────────────────────────
     
     // Login endpoint with database-driven authentication
     app.post('/api/login', async (req, res) => {
@@ -1275,13 +1305,8 @@ sql.connect(config)
         const startTime = req.query.startTime || '00:00';
         const endTime = req.query.endTime || '23:59';
 
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endDateStr)) return res.status(400).json({ error: 'Invalid date format' });
         const request = pool.request();
-        
-        // Parse date strings safely to avoid timezone issues  
-        const [sy, sm, sd] = startDateStr.split('-').map(Number);
-        const [ey, em, ed] = endDateStr.split('-').map(Number);
-        request.input('startDate', sql.Date, new Date(Date.UTC(sy, sm - 1, sd)));
-        request.input('endDate', sql.Date, new Date(Date.UTC(ey, em - 1, ed)));
 
         const query = `
           SELECT 
@@ -1291,8 +1316,8 @@ sql.connect(config)
             AVG(TRY_CONVERT(DECIMAL(18,2), [tare_weight])) as tare_weight,
             COUNT(*) as count
           FROM [FTSS].[dbo].[transac]
-          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) >= @startDate
-            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) <= @endDate
+          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) >= CONVERT(date, '${startDateStr}')
+            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) <= CONVERT(date, '${endDateStr}')
             AND [deleted_at] IS NULL
           GROUP BY CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) AS date)
           ORDER BY transac_date ASC
@@ -1381,18 +1406,15 @@ sql.connect(config)
           const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split('T')[0];
         })();
         const endDateStr = req.query.endDate || new Date().toISOString().split('T')[0];
-        const [sy, sm, sd] = startDateStr.split('-').map(Number);
-        const [ey, em, ed] = endDateStr.split('-').map(Number);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endDateStr)) return res.status(400).json({ error: 'Invalid date format' });
         const request = pool.request();
-        request.input('startDate', sql.Date, new Date(Date.UTC(sy, sm - 1, sd)));
-        request.input('endDate', sql.Date, new Date(Date.UTC(ey, em - 1, ed)));
         const query = `
           SELECT
             CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) AS date) as transac_date,
             COUNT(*) as count
           FROM [FTSS].[dbo].[transac]
-          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) >= @startDate
-            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) <= @endDate
+          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) >= CONVERT(date, '${startDateStr}')
+            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) <= CONVERT(date, '${endDateStr}')
             AND [deleted_at] IS NULL
           GROUP BY CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) AS date)
           ORDER BY transac_date ASC
@@ -1412,19 +1434,16 @@ sql.connect(config)
           const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split('T')[0];
         })();
         const endDateStr = req.query.endDate || new Date().toISOString().split('T')[0];
-        const [sy, sm, sd] = startDateStr.split('-').map(Number);
-        const [ey, em, ed] = endDateStr.split('-').map(Number);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endDateStr)) return res.status(400).json({ error: 'Invalid date format' });
         const request = pool.request();
-        request.input('startDate', sql.Date, new Date(Date.UTC(sy, sm - 1, sd)));
-        request.input('endDate', sql.Date, new Date(Date.UTC(ey, em - 1, ed)));
         const query = `
           SELECT
             ISNULL(NULLIF(LTRIM(RTRIM([product])), ''), 'Unknown') as product,
             COUNT(*) as count,
             SUM(TRY_CONVERT(DECIMAL(18,2), [gross_weight])) as total_weight
           FROM [FTSS].[dbo].[transac]
-          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) >= @startDate
-            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) <= @endDate
+          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) >= CONVERT(date, '${startDateStr}')
+            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) <= CONVERT(date, '${endDateStr}')
             AND [deleted_at] IS NULL
           GROUP BY ISNULL(NULLIF(LTRIM(RTRIM([product])), ''), 'Unknown')
           ORDER BY count DESC
@@ -1442,18 +1461,18 @@ sql.connect(config)
       try {
         const startDateStr = req.query.startDate || (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 1); return d.toISOString().split('T')[0]; })();
         const endDateStr   = req.query.endDate   || new Date().toISOString().split('T')[0];
-        const [sy,sm,sd] = startDateStr.split('-').map(Number);
-        const [ey,em,ed] = endDateStr.split('-').map(Number);
+        // Validate format (YYYY-MM-DD) to prevent SQL injection before inlining
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endDateStr)) {
+          return res.status(400).json({ error: 'Invalid date format' });
+        }
         const request = pool.request();
-        request.input('startDate', sql.Date, new Date(Date.UTC(sy,sm-1,sd)));
-        request.input('endDate',   sql.Date, new Date(Date.UTC(ey,em-1,ed)));
         const result = await request.query(`
           SELECT
             ISNULL(NULLIF(LTRIM(RTRIM([status])),''),'Unknown') as status,
             COUNT(*) as count
           FROM [FTSS].[dbo].[transac]
-          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= @startDate
-            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= @endDate
+          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= CONVERT(date, '${startDateStr}')
+            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= CONVERT(date, '${endDateStr}')
             AND [deleted_at] IS NULL
           GROUP BY ISNULL(NULLIF(LTRIM(RTRIM([status])),''),'Unknown')
           ORDER BY count DESC
@@ -1468,11 +1487,8 @@ sql.connect(config)
         const startDateStr = req.query.startDate || (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 1); return d.toISOString().split('T')[0]; })();
         const endDateStr   = req.query.endDate   || new Date().toISOString().split('T')[0];
         const limit = Math.min(parseInt(req.query.limit) || 15, 50);
-        const [sy,sm,sd] = startDateStr.split('-').map(Number);
-        const [ey,em,ed] = endDateStr.split('-').map(Number);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endDateStr)) return res.status(400).json({ error: 'Invalid date format' });
         const request = pool.request();
-        request.input('startDate', sql.Date, new Date(Date.UTC(sy,sm-1,sd)));
-        request.input('endDate',   sql.Date, new Date(Date.UTC(ey,em-1,ed)));
         request.input('limit', sql.Int, limit);
         const result = await request.query(`
           SELECT TOP (@limit)
@@ -1480,8 +1496,8 @@ sql.connect(config)
             COUNT(*) as trips,
             SUM(TRY_CONVERT(DECIMAL(18,2),[gross_weight])) as total_weight
           FROM [FTSS].[dbo].[transac]
-          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= @startDate
-            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= @endDate
+          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= CONVERT(date, '${startDateStr}')
+            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= CONVERT(date, '${endDateStr}')
             AND [deleted_at] IS NULL
           GROUP BY ISNULL(NULLIF(LTRIM(RTRIM([driver])),''),'Unknown')
           ORDER BY total_weight DESC
@@ -1496,11 +1512,8 @@ sql.connect(config)
         const startDateStr = req.query.startDate || (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 1); return d.toISOString().split('T')[0]; })();
         const endDateStr   = req.query.endDate   || new Date().toISOString().split('T')[0];
         const limit = Math.min(parseInt(req.query.limit) || 15, 50);
-        const [sy,sm,sd] = startDateStr.split('-').map(Number);
-        const [ey,em,ed] = endDateStr.split('-').map(Number);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endDateStr)) return res.status(400).json({ error: 'Invalid date format' });
         const request = pool.request();
-        request.input('startDate', sql.Date, new Date(Date.UTC(sy,sm-1,sd)));
-        request.input('endDate',   sql.Date, new Date(Date.UTC(ey,em-1,ed)));
         request.input('limit', sql.Int, limit);
         const result = await request.query(`
           SELECT TOP (@limit)
@@ -1508,8 +1521,8 @@ sql.connect(config)
             COUNT(*) as trips,
             SUM(TRY_CONVERT(DECIMAL(18,2),[gross_weight])) as total_weight
           FROM [FTSS].[dbo].[transac]
-          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= @startDate
-            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= @endDate
+          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= CONVERT(date, '${startDateStr}')
+            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= CONVERT(date, '${endDateStr}')
             AND [deleted_at] IS NULL
           GROUP BY ISNULL(NULLIF(LTRIM(RTRIM([plate])),''),'Unknown')
           ORDER BY trips DESC
@@ -1523,11 +1536,8 @@ sql.connect(config)
       try {
         const startDateStr = req.query.startDate || (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 1); return d.toISOString().split('T')[0]; })();
         const endDateStr   = req.query.endDate   || new Date().toISOString().split('T')[0];
-        const [sy,sm,sd] = startDateStr.split('-').map(Number);
-        const [ey,em,ed] = endDateStr.split('-').map(Number);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endDateStr)) return res.status(400).json({ error: 'Invalid date format' });
         const request = pool.request();
-        request.input('startDate', sql.Date, new Date(Date.UTC(sy,sm-1,sd)));
-        request.input('endDate',   sql.Date, new Date(Date.UTC(ey,em-1,ed)));
         const result = await request.query(`
           SELECT
             DATEPART(weekday, COALESCE(TRY_CONVERT(datetime,[inbound]), TRY_CONVERT(datetime,[transac_date]),
@@ -1536,8 +1546,8 @@ sql.connect(config)
               CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date])) AS datetime))) as hour,
             COUNT(*) as count
           FROM [FTSS].[dbo].[transac]
-          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= @startDate
-            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= @endDate
+          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= CONVERT(date, '${startDateStr}')
+            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= CONVERT(date, '${endDateStr}')
             AND [deleted_at] IS NULL
           GROUP BY
             DATEPART(weekday, COALESCE(TRY_CONVERT(datetime,[inbound]), TRY_CONVERT(datetime,[transac_date]),
@@ -1555,11 +1565,8 @@ sql.connect(config)
       try {
         const startDateStr = req.query.startDate || (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 3); return d.toISOString().split('T')[0]; })();
         const endDateStr   = req.query.endDate   || new Date().toISOString().split('T')[0];
-        const [sy,sm,sd] = startDateStr.split('-').map(Number);
-        const [ey,em,ed] = endDateStr.split('-').map(Number);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endDateStr)) return res.status(400).json({ error: 'Invalid date format' });
         const request = pool.request();
-        request.input('startDate', sql.Date, new Date(Date.UTC(sy,sm-1,sd)));
-        request.input('endDate',   sql.Date, new Date(Date.UTC(ey,em-1,ed)));
         const result = await request.query(`
           SELECT
             YEAR(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound]))) as year,
@@ -1567,8 +1574,8 @@ sql.connect(config)
             SUM(TRY_CONVERT(DECIMAL(18,2),[gross_weight])) as total_weight,
             COUNT(*) as trips
           FROM [FTSS].[dbo].[transac]
-          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= @startDate
-            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= @endDate
+          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= CONVERT(date, '${startDateStr}')
+            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= CONVERT(date, '${endDateStr}')
             AND [deleted_at] IS NULL
           GROUP BY
             YEAR(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound]))),
@@ -1584,11 +1591,8 @@ sql.connect(config)
       try {
         const startDateStr = req.query.startDate || (() => { const d = new Date(); d.setDate(d.getDate() - 90); return d.toISOString().split('T')[0]; })();
         const endDateStr   = req.query.endDate   || new Date().toISOString().split('T')[0];
-        const [sy,sm,sd] = startDateStr.split('-').map(Number);
-        const [ey,em,ed] = endDateStr.split('-').map(Number);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endDateStr)) return res.status(400).json({ error: 'Invalid date format' });
         const request = pool.request();
-        request.input('startDate', sql.Date, new Date(Date.UTC(sy,sm-1,sd)));
-        request.input('endDate',   sql.Date, new Date(Date.UTC(ey,em-1,ed)));
         const result = await request.query(`
           SELECT
             CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) AS date) as transac_date,
@@ -1597,8 +1601,8 @@ sql.connect(config)
             MAX(DATEDIFF(minute, TRY_CONVERT(datetime,[inbound]), TRY_CONVERT(datetime,[outbound]))) as max_minutes,
             COUNT(*) as trips
           FROM [FTSS].[dbo].[transac]
-          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= @startDate
-            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= @endDate
+          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= CONVERT(date, '${startDateStr}')
+            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= CONVERT(date, '${endDateStr}')
             AND TRY_CONVERT(datetime,[inbound]) IS NOT NULL
             AND TRY_CONVERT(datetime,[outbound]) IS NOT NULL
             AND DATEDIFF(minute, TRY_CONVERT(datetime,[inbound]), TRY_CONVERT(datetime,[outbound])) BETWEEN 1 AND 1440
@@ -1615,11 +1619,8 @@ sql.connect(config)
       try {
         const startDateStr = req.query.startDate || (() => { const d = new Date(); d.setDate(d.getDate() - 90); return d.toISOString().split('T')[0]; })();
         const endDateStr   = req.query.endDate   || new Date().toISOString().split('T')[0];
-        const [sy,sm,sd] = startDateStr.split('-').map(Number);
-        const [ey,em,ed] = endDateStr.split('-').map(Number);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endDateStr)) return res.status(400).json({ error: 'Invalid date format' });
         const request = pool.request();
-        request.input('startDate', sql.Date, new Date(Date.UTC(sy,sm-1,sd)));
-        request.input('endDate',   sql.Date, new Date(Date.UTC(ey,em-1,ed)));
         const result = await request.query(`
           SELECT
             CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) AS date) as transac_date,
@@ -1628,8 +1629,8 @@ sql.connect(config)
             SUM(TRY_CONVERT(DECIMAL(18,2),[net_weight]))   as net,
             COUNT(*) as trips
           FROM [FTSS].[dbo].[transac]
-          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= @startDate
-            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= @endDate
+          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= CONVERT(date, '${startDateStr}')
+            AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= CONVERT(date, '${endDateStr}')
             AND TRY_CONVERT(DECIMAL(18,2),[gross_weight]) > 0
             AND [deleted_at] IS NULL
           GROUP BY CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) AS date)
@@ -1644,11 +1645,8 @@ sql.connect(config)
       try {
         const startDateStr = req.query.startDate || (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 2); return d.toISOString().split('T')[0]; })();
         const endDateStr   = req.query.endDate   || new Date().toISOString().split('T')[0];
-        const [sy,sm,sd] = startDateStr.split('-').map(Number);
-        const [ey,em,ed] = endDateStr.split('-').map(Number);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endDateStr)) return res.status(400).json({ error: 'Invalid date format' });
         const request = pool.request();
-        request.input('startDate', sql.Date, new Date(Date.UTC(sy,sm-1,sd)));
-        request.input('endDate',   sql.Date, new Date(Date.UTC(ey,em-1,ed)));
         const result = await request.query(`
           WITH first_appearance AS (
             SELECT
@@ -1664,8 +1662,8 @@ sql.connect(config)
               MONTH(CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) AS date)) as month,
               NULLIF(LTRIM(RTRIM([plate])),'') as plate
             FROM [FTSS].[dbo].[transac]
-            WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= @startDate
-              AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= @endDate
+            WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) >= CONVERT(date, '${startDateStr}')
+              AND COALESCE(CAST([date] AS date), TRY_CONVERT(date,[transac_date]), TRY_CONVERT(date,[inbound])) <= CONVERT(date, '${endDateStr}')
               AND [deleted_at] IS NULL
               AND NULLIF(LTRIM(RTRIM([plate])),'') IS NOT NULL
             GROUP BY

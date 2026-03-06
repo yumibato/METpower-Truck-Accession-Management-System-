@@ -170,10 +170,13 @@ async function _saveNotification(row) {
       .input('title',    _sql.NVarChar, title)
       .input('message',  _sql.NVarChar, message)
       .input('action',   _sql.NVarChar, row.action)
-      .input('trans_id', _sql.Int,      null)
-      .input('trans_no', _sql.NVarChar, null)
       .input('metadata', _sql.NVarChar, metadata)
-      .execute('sp_create_notification');
+      .query(`
+        INSERT INTO [FTSS].[dbo].[notifications]
+          ([username], [type], [title], [message], [action], [metadata])
+        VALUES
+          (@username, @type, @title, @message, @action, @metadata)
+      `);
 
     console.log(`[Observer] 💾 Saved notification for ${row.table_name} #${row.entity_id}`);
   } catch (err) {

@@ -137,8 +137,8 @@ export async function notifyActivity(action, transaction, username, pool) {
   if (!io || !pool) return;
 
   const notificationTypes = {
-    CREATE: { type: 'success', icon: '✅', verb: 'created' },
-    UPDATE: { type: 'info', icon: '📝', verb: 'updated' },
+    CREATE: { type: 'success', icon: '🚛', verb: 'created' },
+    UPDATE: { type: 'info',    icon: '📝', verb: 'updated' },
     DELETE: { type: 'warning', icon: '🗑️', verb: 'moved to trash' },
     RESTORE: { type: 'success', icon: '♻️', verb: 'restored' },
     BULK_DELETE: { type: 'warning', icon: '📦', verb: 'bulk deleted' },
@@ -147,43 +147,83 @@ export async function notifyActivity(action, transaction, username, pool) {
   };
 
   const config = notificationTypes[action] || { type: 'info', icon: '📋', verb: 'modified' };
-  
-  const transNo = transaction.trans_no || transaction.id || 'N/A';
-  const plate = transaction.plate || 'Unknown';
-  const driver = transaction.driver || '';
+
+  const transNo      = String(transaction.trans_no || transaction.id || 'N/A');
+  const plate        = transaction.plate        || transaction.truck_plate  || 'Unknown';
+  const driver       = transaction.driver       || transaction.driver_name  || '';
+  const product      = transaction.product      || transaction.product_name || '';
+  const transStatus  = (transaction.trans_status || transaction.status || '').toString().toLowerCase();
+  const netWeight    = transaction.net_weight   ?? transaction.netWeight   ?? null;
+  const grossWeight  = transaction.gross_weight ?? transaction.grossWeight ?? null;
+
+  // Build human-friendly title based on action + status
+  let titleText = `Transaction ${config.verb}`;
+  if (action === 'CREATE') {
+    titleText = 'New Truck Arrival';
+  } else if (action === 'UPDATE' && (transStatus === 'complete' || transStatus === 'completed' || transStatus === 'outbound')) {
+    titleText = 'Trip Completed';
+    config.icon = '✅';
+    config.type = 'success';
+  } else if (action === 'UPDATE') {
+    titleText = 'Transaction Updated';
+  } else if (action === 'DELETE') {
+    titleText = 'Transaction Removed';
+  } else if (action === 'RESTORE') {
+    titleText = 'Transaction Restored';
+  }
+
+  // Build compact message line
+  const msgParts = [`[${plate}]`];
+  if (driver)     msgParts.push(`Driver: ${driver}`);
+  if (product)    msgParts.push(`Product: ${product}`);
+  if (netWeight != null && netWeight !== '') msgParts.push(`Net: ${netWeight} kg`);
+  if (!driver && !product) msgParts.push(`(${transNo})`);
 
   const notification = {
     id: Date.now().toString(),
     type: config.type,
-    title: `${config.icon} Transaction ${config.verb}`,
-    message: `Truck [${plate}]${driver ? ` - Driver: ${driver}` : ''} (${transNo})`,
+    title: `${config.icon} ${titleText}`,
+    message: msgParts.join(' · '),
     action,
     trans_id: transaction.id,
     trans_no: transNo,
     username,
     timestamp: new Date().toISOString(),
     clickable: true,
-    autoHide: action !== 'DELETE', // Keep delete notifications visible
-    duration: 5000
+    autoHide: action !== 'DELETE',
+    duration: action === 'CREATE' ? 7000 : 5000,
   };
 
   try {
-    // Store in database for notification history
-    const request = pool.request();
-    await request
-      .input('username', username)
-      .input('type', notification.type)
-      .input('title', notification.title)
-      .input('message', notification.message)
-      .input('action', action)
-      .input('trans_id', transaction.id)
-      .input('trans_no', transNo)
-      .input('metadata', JSON.stringify({ plate, driver }))
-      .execute('sp_create_notification');
-
-    console.log(`💾 Notification saved to database: ${notification.title}`);
+    // Store in database for notification history (direct parameterized INSERT)
+    const dbReq = pool.request();
+    // For BULK actions, `transaction.id` is a count (not a real trans FK) — set NULL
+    const isBulkAction = action.startsWith('BULK_');
+    const transIdVal = (!isBulkAction && transaction.id && !isNaN(Number(transaction.id))) ? Number(transaction.id) : null;
+    const metadataStr = JSON.stringify({
+      plate,
+      driver:       driver      || null,
+      product:      product     || null,
+      trans_status: transStatus || null,
+      net_weight:   netWeight   != null ? String(netWeight)   : null,
+      gross_weight: grossWeight != null ? String(grossWeight) : null,
+    });
+    dbReq.input('p_username', String(username || 'system'));
+    dbReq.input('p_type',     String(notification.type));
+    dbReq.input('p_title',    String(notification.title));
+    dbReq.input('p_message',  String(notification.message || ''));
+    dbReq.input('p_action',   String(action));
+    dbReq.input('p_trans_no', String(transNo));
+    dbReq.input('p_metadata', metadataStr);
+    await dbReq.query(`
+      INSERT INTO [FTSS].[dbo].[notifications]
+        ([username],[type],[title],[message],[action],[trans_id],[trans_no],[metadata])
+      VALUES
+        (@p_username, @p_type, @p_title, @p_message, @p_action, ${transIdVal !== null ? transIdVal : 'NULL'}, @p_trans_no, @p_metadata)
+    `);
+    console.log(`\u{1F4BE} Notification saved to database: ${notification.title}`);
   } catch (error) {
-    console.error('❌ Error saving notification to database:', error);
+    console.error('\u274C Error saving notification to database:', error.message);
   }
 
   // Broadcast notification to all connected clients

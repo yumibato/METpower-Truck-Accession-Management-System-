@@ -4,7 +4,10 @@ import { transacApi } from '../services/transacApi';
 import { BarChart3, Scale, TrendingUp, Package, Truck, CalendarDays, Layers, Minus, RefreshCw, CheckCircle, XCircle, AlertCircle, Box } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-const todayStr = () => new Date().toISOString().split('T')[0];
+const todayStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 interface KpiData {
   totalRecords: number;

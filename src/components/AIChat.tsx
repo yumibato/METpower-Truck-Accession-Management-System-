@@ -97,7 +97,8 @@ export default function AIChat() {
     if (sessionStorage.getItem(BRIEF_KEY)) return;
     sessionStorage.setItem(BRIEF_KEY, '1');
     const name = user?.username ?? 'there';
-    const today = new Date().toISOString().split('T')[0];
+    const _d = new Date();
+    const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`;
 
     setTimeout(async () => {
       setOpen(true);

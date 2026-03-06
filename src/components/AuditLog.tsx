@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Clock, User, FileEdit, Trash2, RotateCcw, Package, AlertCircle, ChevronLeft, ChevronRight, RefreshCw, X } from 'lucide-react';
 import { transacApi, AuditLogEntry, AuditLogResult } from '../services/transacApi';
 import { format, formatDistanceToNow } from 'date-fns';
 
 interface AuditLogProps {
-  transactionId?: number; // If provided, show audit for specific transaction
-  onClose?: () => void;   // Close handler for modal view
+  transactionId?: number;   // If provided, show audit for specific transaction only (modal mode)
+  highlightTransId?: number; // If provided, highlight + scroll to rows for this transaction
+  onClose?: () => void;      // Close handler for modal view
 }
 
 // Action icon mapping
@@ -72,12 +73,13 @@ const getActionColor = (action: string) => {
   }
 };
 
-const AuditLog: React.FC<AuditLogProps> = ({ transactionId, onClose }) => {
+const AuditLog: React.FC<AuditLogProps> = ({ transactionId, highlightTransId, onClose }) => {
   const [auditData, setAuditData] = useState<AuditLogResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const pageSize = 20;
+  const firstHighlightRef = useRef<HTMLDivElement | null>(null);
 
   const loadAuditData = async () => {
     setLoading(true);
@@ -101,6 +103,15 @@ const AuditLog: React.FC<AuditLogProps> = ({ transactionId, onClose }) => {
   useEffect(() => {
     loadAuditData();
   }, [transactionId, page]);
+
+  // Scroll to first highlighted row after data loads
+  useEffect(() => {
+    if (!loading && highlightTransId && firstHighlightRef.current) {
+      setTimeout(() => {
+        firstHighlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 150);
+    }
+  }, [loading, highlightTransId, auditData]);
 
   const totalPages = auditData ? Math.ceil(auditData.total / pageSize) : 0;
 
@@ -174,12 +185,19 @@ const AuditLog: React.FC<AuditLogProps> = ({ transactionId, onClose }) => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {auditData.rows.map((entry: AuditLogEntry) => {
+                  {auditData.rows.map((entry: AuditLogEntry, idx: number) => {
                     const dateTime = formatDateTime(entry.created_at);
+                    const isHighlighted = !!highlightTransId && entry.transaction_id === highlightTransId;
+                    const isFirstHighlight = isHighlighted && auditData.rows.findIndex(r => r.transaction_id === highlightTransId) === idx;
                     return (
                       <div
                         key={entry.id}
-                        className="bg-white dark:bg-midnight-750 border border-gray-200 dark:border-midnight-700 rounded-lg p-4 hover:shadow-md dark:hover:shadow-slate-900/50 transition-shadow"
+                        ref={isFirstHighlight ? firstHighlightRef : undefined}
+                        className={`rounded-lg p-4 transition-all ${
+                          isHighlighted
+                            ? 'bg-cyan-500/10 border border-cyan-400/40 shadow-md shadow-cyan-500/10 ring-1 ring-cyan-400/20'
+                            : 'bg-white dark:bg-midnight-750 border border-gray-200 dark:border-midnight-700 hover:shadow-md dark:hover:shadow-slate-900/50'
+                        }`}
                       >
                         <div className="flex items-start space-x-3">
                           <div className="flex-shrink-0">

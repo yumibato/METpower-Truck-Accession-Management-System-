@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Bell, CheckCircle, XCircle, AlertCircle, Info, Trash2, CheckCheck, Clock, RefreshCw, ChevronDown, ExternalLink, Truck, User, Package, Tag } from 'lucide-react';
+import { X, Bell, CheckCircle, XCircle, AlertCircle, Info, Trash2, CheckCheck, Clock, RefreshCw, ChevronDown, ExternalLink, Truck, User, Package, Tag, Weight, Activity } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -208,7 +208,7 @@ export default function NotificationHistory({ isOpen, onClose, onUnreadCountChan
 
   const handleViewInLog = (e: React.MouseEvent, notification: Notification) => {
     e.stopPropagation();
-    navigate(`/dashboard?tab=auditlog&trans_id=${notification.trans_id}`);
+    navigate(`/activity-log?trans_id=${notification.trans_id}`);
     onClose();
   };
 
@@ -425,6 +425,32 @@ export default function NotificationHistory({ isOpen, onClose, onUnreadCountChan
                           <Package className="w-3.5 h-3.5 text-emerald-400/70 flex-shrink-0" />
                           <span className="text-[11px] text-white/45 w-14 flex-shrink-0">Product</span>
                           <span className="text-xs text-white/80">{meta.product}</span>
+                        </div>
+                      )}
+                      {/* Status */}
+                      {meta.trans_status && (
+                        <div className="flex items-center gap-2.5">
+                          <Activity className="w-3.5 h-3.5 text-amber-400/70 flex-shrink-0" />
+                          <span className="text-[11px] text-white/45 w-14 flex-shrink-0">Status</span>
+                          <span className={`text-xs font-semibold capitalize ${
+                            meta.trans_status === 'complete' || meta.trans_status === 'completed'
+                              ? 'text-emerald-400'
+                              : meta.trans_status === 'inbound'
+                              ? 'text-cyan-400'
+                              : 'text-white/70'
+                          }`}>{meta.trans_status}</span>
+                        </div>
+                      )}
+                      {/* Weight */}
+                      {(meta.net_weight || meta.gross_weight) && (
+                        <div className="flex items-center gap-2.5">
+                          <Weight className="w-3.5 h-3.5 text-purple-400/70 flex-shrink-0" />
+                          <span className="text-[11px] text-white/45 w-14 flex-shrink-0">Weight</span>
+                          <span className="text-xs text-white/70 font-mono">
+                            {meta.net_weight ? `Net: ${meta.net_weight} kg` : ''}
+                            {meta.net_weight && meta.gross_weight ? ' · ' : ''}
+                            {meta.gross_weight ? `Gross: ${meta.gross_weight} kg` : ''}
+                          </span>
                         </div>
                       )}
                       {/* Table / Entity (from db-observer) */}
