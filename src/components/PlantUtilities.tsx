@@ -3,6 +3,8 @@ import axios from 'axios';
 import { LineChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts';
 import { AlertCircle, DollarSign, Zap, Droplet, TrendingDown } from 'lucide-react';
 import InfoDrawer from './InfoDrawer';
+import { ChartCard } from './ChartCard';
+import { chartGridConfig, chartXAxisConfig, chartTooltipConfig, chartTooltipConfigDark } from '../utils/chartConfig';
 import { DetailDrawerState, UtilitiesVisualizationData } from '../types/VisualizationData';
 import { createVisualClickHandler, transformChartDataToVisualizationData } from '../utils/visualizationClickHandler';
 
@@ -74,25 +76,25 @@ const PlantUtilities: React.FC<PlantUtilitiesProps> = ({ onDataUpdate, onViewSou
     return () => observer.disconnect();
   }, []);
 
-  // Theme configuration
+  // Theme configuration - simplified with CSS variables
   const theme = {
     dark: {
       bg: 'bg-gradient-to-br from-slate-800 to-slate-900',
       border: 'border-slate-700',
-      gridStroke: '#475569',
+      gridStroke: 'var(--grid)',
       axisStroke: '#94a3b8',
-      tooltipBg: '#1e293b',
-      tooltipBorder: '#475569',
+      tooltipBg: 'var(--bg-elevated)',
+      tooltipBorder: 'var(--border)',
       textColor: '#cbd5e1',
       labelColor: '#94a3b8'
     },
     light: {
       bg: 'bg-gradient-to-br from-gray-50 to-gray-100',
       border: 'border-gray-200',
-      gridStroke: '#e5e7eb',
+      gridStroke: 'var(--grid)',
       axisStroke: '#6b7280',
-      tooltipBg: '#ffffff',
-      tooltipBorder: '#e5e7eb',
+      tooltipBg: 'var(--bg-elevated)',
+      tooltipBorder: 'var(--border)',
       textColor: '#374151',
       labelColor: '#6b7280'
     }
@@ -275,89 +277,70 @@ const PlantUtilities: React.FC<PlantUtilitiesProps> = ({ onDataUpdate, onViewSou
       </div>
 
       {/* Cost Trend Chart */}
-      <div className={`rounded-lg p-6 border ${
-        isDark 
-          ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700' 
-          : 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200'
-      }`}>
-        <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-cyan-400' : 'text-blue-600'}`}>Daily Cost Trend</h3>
+      <ChartCard title="Daily Cost Trend">
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={data} onClick={(state) => {
             if (state && state.activeTooltipIndex !== undefined && data[state.activeTooltipIndex]) {
               handleChartPointClick(data[state.activeTooltipIndex], state.activeTooltipIndex);
             }
           }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={currentTheme.gridStroke} />
-            <XAxis dataKey="utility_date" stroke={currentTheme.axisStroke} cursor="pointer" />
-            <YAxis stroke={currentTheme.axisStroke} />
+            <CartesianGrid {...chartGridConfig} />
+            <XAxis {...chartXAxisConfig} dataKey="utility_date" />
+            <YAxis hide />
             <Tooltip 
-              contentStyle={{ backgroundColor: currentTheme.tooltipBg, border: `1px solid ${currentTheme.tooltipBorder}`, cursor: 'pointer' }}
-              labelStyle={{ color: isDark ? '#06b6d4' : '#2563eb' }}
+              {...(isDark ? chartTooltipConfigDark : chartTooltipConfig)}
               formatter={(value) => [`₱${typeof value === 'number' ? value.toFixed(2) : value}`, 'Cost']}
-              cursor="pointer"
             />
-            <Legend wrapperStyle={{ color: currentTheme.textColor }} />
+            <Legend />
             <Line 
               type="monotone" 
               dataKey="total_cost" 
-              stroke="#ef4444" 
+              stroke='var(--chart-red)' 
               dot={false}
               strokeWidth={2}
               name="Total Cost"
             />
           </LineChart>
         </ResponsiveContainer>
-      </div>
+      </ChartCard>
 
       {/* Electricity vs Water Cost */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Cost Breakdown */}
-        <div className={`rounded-lg p-6 border ${
-          isDark 
-            ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700' 
-            : 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200'
-        }`}>
-          <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-cyan-400' : 'text-blue-600'}`}>Electricity vs Water Cost</h3>
+        <ChartCard title="Electricity vs Water Cost">
           <ResponsiveContainer width="100%" height={250}>
             <ComposedChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke={currentTheme.gridStroke} />
-              <XAxis dataKey="utility_date" stroke={currentTheme.axisStroke} />
-              <YAxis stroke={currentTheme.axisStroke} />
+              <CartesianGrid {...chartGridConfig} />
+              <XAxis {...chartXAxisConfig} dataKey="utility_date" />
+              <YAxis hide />
               <Tooltip 
-                contentStyle={{ backgroundColor: currentTheme.tooltipBg, border: `1px solid ${currentTheme.tooltipBorder}` }}
-                labelStyle={{ color: isDark ? '#06b6d4' : '#2563eb' }}
+                {...(isDark ? chartTooltipConfigDark : chartTooltipConfig)}
                 formatter={(value) => `₱${typeof value === 'number' ? value.toFixed(2) : value}`}
               />
-              <Legend wrapperStyle={{ color: currentTheme.textColor }} />
-              <Bar dataKey="electricity_cost" fill="#fbbf24" name="Electricity" />
-              <Bar dataKey="water_cost" fill="#60a5fa" name="Water" />
+              <Legend />
+              <Bar dataKey="electricity_cost" fill='var(--chart-amber)' name="Electricity" />
+              <Bar dataKey="water_cost" fill='var(--chart-blue)' name="Water" />
             </ComposedChart>
           </ResponsiveContainer>
-        </div>
+        </ChartCard>
 
         {/* Consumption Trend */}
-        <div className={`rounded-lg p-6 border ${
-          isDark 
-            ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700' 
-            : 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200'
-        }`}>
-          <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-cyan-400' : 'text-blue-600'}`}>Resource Consumption</h3>
+        <ChartCard title="Resource Consumption">
           <ResponsiveContainer width="100%" height={250}>
             <ComposedChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke={currentTheme.gridStroke} />
-              <XAxis dataKey="utility_date" stroke={currentTheme.axisStroke} />
-              <YAxis yAxisId="left" stroke="#fbbf24" />
-              <YAxis yAxisId="right" orientation="right" stroke="#60a5fa" />
+              <CartesianGrid {...chartGridConfig} />
+              <XAxis {...chartXAxisConfig} dataKey="utility_date" />
+              <YAxis yAxisId="left" hide />
+              <YAxis yAxisId="right" orientation="right" hide />
               <Tooltip 
-                contentStyle={{ backgroundColor: currentTheme.tooltipBg, border: `1px solid ${currentTheme.tooltipBorder}` }}
-                labelStyle={{ color: isDark ? '#06b6d4' : '#2563eb' }}
+                {...(isDark ? chartTooltipConfigDark : chartTooltipConfig)}
               />
-              <Legend wrapperStyle={{ color: currentTheme.textColor }} />
+              <Legend />
               <Line 
                 yAxisId="left"
                 type="monotone" 
                 dataKey="electricity_consumed_kwh" 
-                stroke="#fbbf24"
+                stroke='var(--chart-amber)'
                 name="Electricity (kWh)"
                 strokeWidth={2}
               />
@@ -365,13 +348,13 @@ const PlantUtilities: React.FC<PlantUtilitiesProps> = ({ onDataUpdate, onViewSou
                 yAxisId="right"
                 type="monotone" 
                 dataKey="water_consumption_m3" 
-                stroke="#60a5fa"
+                stroke='var(--chart-blue)'
                 name="Water (m³)"
                 strokeWidth={2}
               />
             </ComposedChart>
           </ResponsiveContainer>
-        </div>
+        </ChartCard>
       </div>
 
       {/* Cost Summary Statistics */}

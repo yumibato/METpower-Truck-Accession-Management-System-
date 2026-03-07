@@ -8,6 +8,14 @@ import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
+const NAV_ITEMS = [
+  { path: '/dashboard',    emoji: '📊', label: 'Dashboard' },
+  { path: '/transactions', icon: 'FileText',  label: 'Transactions' },
+  { path: '/activity-log',icon: 'Activity',   label: 'Activity Log' },
+  { path: '/analytics',   icon: 'BarChart3',  label: 'Analytics' },
+  { path: '/trash',       icon: 'Trash2',     label: 'Trash' },
+];
+
 export default function Header() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -17,6 +25,7 @@ export default function Header() {
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [serverOnline, setServerOnline] = useState<boolean | null>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const checkServerHealth = async () => {
     try {
@@ -100,59 +109,53 @@ export default function Header() {
           <div className="hidden md:flex items-center space-x-1">
             <button
               onClick={() => navigate('/dashboard')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150 ${
-                isActive('/dashboard')
-                  ? 'bg-white/80 dark:bg-white/10 text-blue-600 dark:text-neon-cyan-glow shadow-sm'
-                  : 'text-gray-600 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/5'
-              }`}
+              className={`nav-pill${isActive('/dashboard') ? ' active' : ''}`}
             >
               📊 Dashboard
             </button>
             <button
               onClick={() => navigate('/transactions')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150 flex items-center space-x-2 ${
-                isActive('/transactions')
-                  ? 'bg-white/80 dark:bg-white/10 text-blue-600 dark:text-neon-cyan-glow shadow-sm'
-                  : 'text-gray-600 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/5'
-              }`}
+              className={`nav-pill${isActive('/transactions') ? ' active' : ''}`}
             >
               <FileText className="h-4 w-4" />
               <span>Transactions</span>
             </button>
             <button
               onClick={() => navigate('/activity-log')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150 flex items-center space-x-2 ${
-                isActive('/activity-log')
-                  ? 'bg-white/80 dark:bg-white/10 text-blue-600 dark:text-neon-cyan-glow shadow-sm'
-                  : 'text-gray-600 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/5'
-              }`}
+              className={`nav-pill${isActive('/activity-log') ? ' active' : ''}`}
             >
               <Activity className="h-4 w-4" />
               <span>Activity Log</span>
             </button>
             <button
               onClick={() => navigate('/analytics')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150 flex items-center space-x-2 ${
-                isActive('/analytics')
-                  ? 'bg-white/80 dark:bg-white/10 text-blue-600 dark:text-neon-cyan-glow shadow-sm'
-                  : 'text-gray-600 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/5'
-              }`}
+              className={`nav-pill${isActive('/analytics') ? ' active' : ''}`}
             >
               <BarChart3 className="h-4 w-4" />
               <span>Analytics</span>
             </button>
             <button
               onClick={() => navigate('/trash')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150 flex items-center space-x-2 ${
-                isActive('/trash')
-                  ? 'bg-red-50/80 dark:bg-red-500/15 text-red-600 dark:text-red-400 shadow-sm'
-                  : 'text-gray-600 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/5'
-              }`}
+              className={`nav-pill${isActive('/trash') ? ' active' : ''}`}
             >
               <Trash2 className="h-4 w-4" />
               <span>Trash</span>
             </button>
           </div>
+
+          {/* Hamburger — visible below md (768px) */}
+          <button
+            className="mobile-menu-btn"
+            onClick={() => setMobileNavOpen(true)}
+            aria-label="Open menu"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="3" y1="6"  x2="21" y2="6"/>
+              <line x1="3" y1="12" x2="21" y2="12"/>
+              <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
 
           {/* User Menu */}
           <div className="flex items-center space-x-4">
@@ -191,7 +194,7 @@ export default function Header() {
             <button
               onClick={toggleTheme}
               title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-              className="relative w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-200 text-white/50 hover:text-white/90 hover:bg-white/8"
+              className="btn-icon relative w-8 h-8"
             >
               <Moon
                 className={`h-4 w-4 absolute transition-all duration-300 ${
@@ -208,7 +211,7 @@ export default function Header() {
             {/* Notification Bell */}
             <button
               onClick={() => setIsNotificationPanelOpen(true)}
-              className="relative p-2 text-gray-600 dark:text-white/60 hover:bg-black/5 dark:hover:bg-white/8 rounded-lg transition-all duration-150"
+              className="btn-icon relative p-2"
             >
               <Bell className="h-5 w-5" />
               {unreadCount > 0 && (
@@ -227,7 +230,7 @@ export default function Header() {
             
             <button
               onClick={handleLogout}
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-white/60 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all duration-150"
+              className="btn-ghost flex items-center space-x-2 text-sm"
             >
               <LogOut className="h-4 w-4" />
               <span>Logout</span>
@@ -242,6 +245,44 @@ export default function Header() {
         onClose={() => setIsNotificationPanelOpen(false)}
         onUnreadCountChange={setUnreadCount}
       />
+
+      {/* Mobile nav overlay + drawer */}
+      {mobileNavOpen && (
+        <div className="mobile-nav-overlay" onClick={() => setMobileNavOpen(false)}>
+          <div className="mobile-nav-drawer" onClick={e => e.stopPropagation()}>
+            <div className="mobile-nav-header">
+              <span className="mobile-nav-header-title">METpower</span>
+              <button className="mobile-nav-close" onClick={() => setMobileNavOpen(false)}>✕</button>
+            </div>
+            {NAV_ITEMS.map(item => (
+              <button
+                key={item.path}
+                className={`mobile-nav-item${isActive(item.path) ? ' active' : ''}`}
+                onClick={() => { navigate(item.path); setMobileNavOpen(false); }}
+              >
+                {item.emoji ? (
+                  <span style={{ fontSize:16 }}>{item.emoji}</span>
+                ) : item.icon === 'FileText'  ? <FileText  className="h-4 w-4" /> :
+                   item.icon === 'Activity'   ? <Activity   className="h-4 w-4" /> :
+                   item.icon === 'BarChart3'  ? <BarChart3  className="h-4 w-4" /> :
+                   item.icon === 'Trash2'     ? <Trash2     className="h-4 w-4" /> : null}
+                {item.label}
+              </button>
+            ))}
+
+            {/* Divider + logout */}
+            <div style={{ borderTop:'1px solid var(--border)', marginTop:'auto', paddingTop:12 }}>
+              <button
+                className="mobile-nav-item"
+                onClick={() => { logout(); setMobileNavOpen(false); }}
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

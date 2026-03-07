@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePersistentState } from '../../hooks/usePersistentState';
-import { Calendar, RotateCcw, Bot } from 'lucide-react';
+import { PieChart, Pie, Cell } from 'recharts';
+import { Calendar, RotateCcw } from 'lucide-react';
+import { ChartCard } from '../ChartCard';
 
 interface StatusRow { status: string; count: number; }
 
 const STATUS_COLORS: Record<string, string> = {
-  Completed: '#10b981',
-  Pending:   '#f59e0b',
-  Rejected:  '#ef4444',
-  Unknown:   '#9ca3af',
+  Completed: 'var(--chart-green)',
+  Pending:   'var(--chart-amber)',
+  Rejected:  'var(--chart-red)',
+  Unknown:   '#9CA3AF',
 };
 const DEFAULT_COLOR = '#6366f1';
 
@@ -55,21 +57,6 @@ export default function StatusBreakdown() {
 
   const total = data.reduce((s, d) => s + d.count, 0);
 
-  // Build conic-gradient from data
-  const conicSegments = (() => {
-    let acc = 0;
-    return data.map(d => {
-      const pct = total > 0 ? (d.count / total) * 100 : 0;
-      const seg = { color: getColor(d.status), from: acc, to: acc + pct };
-      acc += pct;
-      return seg;
-    });
-  })();
-
-  const conicGradient = conicSegments.length
-    ? `conic-gradient(${conicSegments.map(s => `${s.color} ${s.from.toFixed(2)}% ${s.to.toFixed(2)}%`).join(', ')})`
-    : 'conic-gradient(#e5e7eb 0% 100%)';
-
   return (
     <div className="space-y-6">
       {/* Filter bar */}
@@ -96,22 +83,7 @@ export default function StatusBreakdown() {
       </div>
 
       {/* Panel */}
-      <div className="bg-white dark:bg-midnight-900 rounded-xl border border-gray-200 dark:border-midnight-600 shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-midnight-700">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Transaction Status Breakdown</h3>
-          <button
-            onClick={() => {
-              const breakdown = data.map(d => `${d.status}: ${d.count}`).join(', ');
-              const total = data.reduce((s, d) => s + d.count, 0);
-              window.dispatchEvent(new CustomEvent('explain-chart', { detail: { message: `Explain the Transaction Status Breakdown chart (${startDate} to ${endDate}). Total transactions: ${total}. Breakdown: ${breakdown || 'no data yet'}. What does this distribution mean, which status dominates, are the void or rejected counts concerning, what is the success rate, and what actions should be taken to improve transaction quality?` } }));
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800/50 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors shrink-0"
-            title="Ask AI to explain this chart"
-          >
-            <Bot className="w-3.5 h-3.5" /> Explain
-          </button>
-        </div>
-
+      <ChartCard title="Transaction Status Breakdown">
         {loading ? (
           <div className="h-72 flex flex-col items-center justify-center gap-3">
             <div className="animate-spin rounded-full h-7 w-7 border-2 border-blue-500 border-t-transparent" />
@@ -122,29 +94,33 @@ export default function StatusBreakdown() {
         ) : data.length === 0 ? (
           <div className="h-72 flex items-center justify-center"><p className="text-sm text-gray-400 dark:text-gray-500">No data for selected range.</p></div>
         ) : (
-          <div className="p-6 flex flex-col lg:flex-row gap-8 items-center">
-
-            {/* CSS Donut */}
-            <div className="flex-shrink-0 flex flex-col items-center gap-3">
-              <div className="relative" style={{ width: 180, height: 180 }}>
-                <div
-                  className="w-full h-full rounded-full"
-                  style={{ background: conicGradient }}
-                />
-                {/* Hole */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <div className="bg-white dark:bg-midnight-900 rounded-full flex flex-col items-center justify-center"
-                    style={{ width: 104, height: 104 }}>
-                    <span className="text-2xl font-bold text-gray-900 dark:text-gray-100 leading-none">
-                      {total.toLocaleString()}
-                    </span>
-                    <span className="text-xs text-gray-400 mt-0.5">total</span>
-                  </div>
-                </div>
+          <div className="flex flex-col lg:flex-row gap-8 items-center">
+            <div className="relative flex-shrink-0" style={{ width: 180, height: 180 }}>
+              <PieChart width={180} height={180}>
+                <Pie
+                  data={data.map(d => ({ name: d.status, value: d.count }))}
+                  cx={90}
+                  cy={90}
+                  innerRadius={56}
+                  outerRadius={77}
+                  paddingAngle={4}
+                  cornerRadius={5}
+                  dataKey="value"
+                  stroke="none"
+                >
+                  {data.map((row) => (
+                    <Cell key={row.status} fill={getColor(row.status)} />
+                  ))}
+                </Pie>
+              </PieChart>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-2xl font-bold text-gray-900 dark:text-gray-100 leading-none">
+                  {total.toLocaleString()}
+                </span>
+                <span className="text-xs text-gray-400 mt-0.5">total</span>
               </div>
             </div>
 
-            {/* Status cards */}
             <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 w-full">
               {data.map(row => {
                 const pct = total > 0 ? (row.count / total * 100) : 0;
@@ -172,7 +148,7 @@ export default function StatusBreakdown() {
             </div>
           </div>
         )}
-      </div>
+      </ChartCard>
     </div>
   );
 }

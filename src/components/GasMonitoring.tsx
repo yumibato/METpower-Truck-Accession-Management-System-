@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { AlertCircle, TrendingUp, Activity, Thermometer } from 'lucide-react';
 import InfoDrawer from './InfoDrawer';
+import { ChartCard } from './ChartCard';
+import { chartGridConfig, chartXAxisConfig, chartTooltipConfig, chartTooltipConfigDark } from '../utils/chartConfig';
 import { DetailDrawerState, GasVisualizationData } from '../types/VisualizationData';
 import { createVisualClickHandler, transformChartDataToVisualizationData } from '../utils/visualizationClickHandler';
 
@@ -69,25 +71,25 @@ const GasMonitoring: React.FC<GasMonitoringProps> = ({ onStatusChange, onViewSou
     return () => observer.disconnect();
   }, []);
 
-  // Theme configuration
+  // Theme configuration - now simplified with CSS variables
   const theme = {
     dark: {
       bg: 'bg-gradient-to-br from-slate-800 to-slate-900',
       border: 'border-slate-700',
-      gridStroke: '#475569',
+      gridStroke: 'var(--grid)',
       axisStroke: '#94a3b8',
-      tooltipBg: '#1e293b',
-      tooltipBorder: '#475569',
+      tooltipBg: 'var(--bg-elevated)',
+      tooltipBorder: 'var(--border)',
       textColor: '#cbd5e1',
       labelColor: '#94a3b8'
     },
     light: {
       bg: 'bg-gradient-to-br from-gray-50 to-gray-100',
       border: 'border-gray-200',
-      gridStroke: '#e5e7eb',
+      gridStroke: 'var(--grid)',
       axisStroke: '#6b7280',
-      tooltipBg: '#ffffff',
-      tooltipBorder: '#e5e7eb',
+      tooltipBg: 'var(--bg-elevated)',
+      tooltipBorder: 'var(--border)',
       textColor: '#374151',
       labelColor: '#6b7280'
     }
@@ -307,137 +309,56 @@ const GasMonitoring: React.FC<GasMonitoringProps> = ({ onStatusChange, onViewSou
         </div>
       </div>
 
-      {/* Gas Production vs Usage Chart */}
-      <div className={`rounded-lg p-6 border ${
-        isDark 
-          ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700' 
-          : 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200'
-      }`}>
-        <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-cyan-400' : 'text-blue-600'}`}>Gas Production vs Usage</h3>
+      {/* Gas Volumes — produced & used (areas) + flared (dashed line) */}
+      <ChartCard title="Gas Volumes (m³)">
         <ResponsiveContainer width="100%" height={300}>
-          <AreaChart data={data} onClick={(state) => {
+          <ComposedChart data={data} onClick={(state) => {
             if (state && state.activeTooltipIndex !== undefined && data[state.activeTooltipIndex]) {
               handleChartPointClick(data[state.activeTooltipIndex], state.activeTooltipIndex);
             }
           }}>
             <defs>
-              <linearGradient id="colorProduced" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+              <linearGradient id="gradProduced" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor='var(--chart-green)' stopOpacity={0.2} />
+                <stop offset="100%" stopColor='var(--chart-green)' stopOpacity={0} />
               </linearGradient>
-              <linearGradient id="colorUsed" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+              <linearGradient id="gradUsed" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor='var(--chart-blue)' stopOpacity={0.2} />
+                <stop offset="100%" stopColor='var(--chart-blue)' stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke={currentTheme.gridStroke} />
-            <XAxis dataKey="reading_date" stroke={currentTheme.axisStroke} cursor="pointer" />
-            <YAxis stroke={currentTheme.axisStroke} />
-            <Tooltip 
-              contentStyle={{ backgroundColor: currentTheme.tooltipBg, border: `1px solid ${currentTheme.tooltipBorder}`, cursor: 'pointer' }}
-              labelStyle={{ color: isDark ? '#06b6d4' : '#2563eb' }}
-              cursor="pointer"
-            />
-            <Legend wrapperStyle={{ color: currentTheme.textColor }} />
-            <Area 
-              type="monotone" 
-              dataKey="total_produced" 
-              stroke="#10b981" 
-              fillOpacity={1} 
-              fill="url(#colorProduced)"
-              name="Produced (m³)"
-            />
-            <Area 
-              type="monotone" 
-              dataKey="total_used" 
-              stroke="#3b82f6" 
-              fillOpacity={1} 
-              fill="url(#colorUsed)"
-              name="Used (m³)"
-            />
-          </AreaChart>
+            <CartesianGrid {...chartGridConfig} />
+            <XAxis {...chartXAxisConfig} dataKey="reading_date" />
+            <YAxis hide />
+            <Tooltip {...(isDark ? chartTooltipConfigDark : chartTooltipConfig)} />
+            <Legend iconType="circle" iconSize={7} wrapperStyle={{ fontSize: 12, color: 'var(--text-secondary)', paddingTop: 12 }} />
+            <Area type="monotone" dataKey="total_produced" stroke='var(--chart-green)'
+              fillOpacity={1} fill="url(#gradProduced)" name="Produced (m³)" dot={false} strokeWidth={2} />
+            <Area type="monotone" dataKey="total_used" stroke='var(--chart-blue)'
+              fillOpacity={1} fill="url(#gradUsed)" name="Used (m³)" dot={false} strokeWidth={2} />
+            <Line type="monotone" dataKey="total_flared" stroke='var(--chart-amber)'
+              strokeWidth={2} strokeDasharray="4 3" name="Flared (m³)" dot={false} />
+          </ComposedChart>
         </ResponsiveContainer>
-      </div>
+      </ChartCard>
 
-      {/* Flared Gas Trend */}
-      <div className={`rounded-lg p-6 border ${
-        isDark 
-          ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700' 
-          : 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200'
-      }`}>
-        <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>Gas Flared Trend</h3>
+      {/* Pressure & Temperature — dual Y-axis */}
+      <ChartCard title="Pressure & Temperature">
         <ResponsiveContainer width="100%" height={250}>
-          <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke={currentTheme.gridStroke} />
-            <XAxis dataKey="reading_date" stroke={currentTheme.axisStroke} />
-            <YAxis stroke={currentTheme.axisStroke} />
-            <Tooltip 
-              contentStyle={{ backgroundColor: currentTheme.tooltipBg, border: `1px solid ${currentTheme.tooltipBorder}` }}
-              labelStyle={{ color: isDark ? '#06b6d4' : '#2563eb' }}
-            />
-            <Legend wrapperStyle={{ color: currentTheme.textColor }} />
-            <Line 
-              type="monotone" 
-              dataKey="total_flared" 
-              stroke={isDark ? '#f97316' : '#ea580c'} 
-              dot={false}
-              strokeWidth={2}
-              name="Flared (m³)"
-            />
-          </LineChart>
+          <ComposedChart data={data}>
+            <CartesianGrid {...chartGridConfig} />
+            <XAxis {...chartXAxisConfig} dataKey="reading_date" />
+            <YAxis yAxisId="pressure" hide />
+            <YAxis yAxisId="temp" orientation="right" hide />
+            <Tooltip {...(isDark ? chartTooltipConfigDark : chartTooltipConfig)} />
+            <Legend iconType="circle" iconSize={7} wrapperStyle={{ fontSize: 12, color: 'var(--text-secondary)', paddingTop: 12 }} />
+            <Line yAxisId="pressure" type="monotone" dataKey="avg_pressure"
+              stroke='var(--chart-purple)' strokeWidth={2} dot={false} name="Pressure (bar)" />
+            <Line yAxisId="temp" type="monotone" dataKey="avg_temperature"
+              stroke='var(--chart-red)' strokeWidth={1.5} strokeDasharray="4 3" dot={false} name="Temp (°C)" />
+          </ComposedChart>
         </ResponsiveContainer>
-      </div>
-
-      {/* Pressure & Temperature Trend */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Pressure Chart */}
-        <div className={`rounded-lg p-6 border ${isDark ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
-          <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>Gas Pressure</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke={currentTheme.gridStroke} />
-              <XAxis dataKey="reading_date" stroke={currentTheme.axisStroke} />
-              <YAxis stroke={currentTheme.axisStroke} />
-              <Tooltip 
-                contentStyle={{ backgroundColor: currentTheme.tooltipBg, border: `1px solid ${currentTheme.tooltipBorder}` }}
-                labelStyle={{ color: isDark ? '#06b6d4' : '#2563eb' }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="avg_pressure" 
-                stroke="#a855f7" 
-                dot={false}
-                strokeWidth={2}
-                name="Pressure (bar)"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Temperature Chart */}
-        <div className={`rounded-lg p-6 border ${isDark ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
-          <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-red-400' : 'text-red-600'}`}>Temperature</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke={currentTheme.gridStroke} />
-              <XAxis dataKey="reading_date" stroke={currentTheme.axisStroke} />
-              <YAxis stroke={currentTheme.axisStroke} />
-              <Tooltip 
-                contentStyle={{ backgroundColor: currentTheme.tooltipBg, border: `1px solid ${currentTheme.tooltipBorder}` }}
-                labelStyle={{ color: isDark ? '#06b6d4' : '#2563eb' }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="avg_temperature" 
-                stroke="#ef4444" 
-                dot={false}
-                strokeWidth={2}
-                name="Temperature (°C)"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      </ChartCard>
 
       {/* Click-to-Detail Drawer */}
       <InfoDrawer

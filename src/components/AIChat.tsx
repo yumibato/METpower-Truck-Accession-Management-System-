@@ -157,6 +157,11 @@ export default function AIChat() {
   // Scroll to bottom on new messages
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
 
+  // Notify NotificationContainer so toasts slide out of the way
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('ai-chat-panel', { detail: { open, panelWidth: 380 } }));
+  }, [open]);
+
   // Listen for chart explain events
   useEffect(() => {
     const handler = (e: Event) => {
@@ -269,7 +274,7 @@ export default function AIChat() {
         className="fixed bottom-6 right-6 z-50 rounded-full shadow-xl flex items-center justify-center transition-all duration-300"
         style={{
           width: 52, height: 52,
-          background: open ? '#2a2a2a' : '#1a73e8',
+          background: open ? '#2a2a2a' : '#3B82F6',
         }}
         title="Cube AI Assistant"
       >
@@ -292,7 +297,7 @@ export default function AIChat() {
       <div
         className={`fixed top-0 right-0 z-40 h-full flex flex-col transition-all duration-300 ease-in-out overflow-hidden
           ${open ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0 pointer-events-none'}`}
-        style={{ width: 380, background: '#1e1e1e' }}
+        style={{ width: 380, background: '#1A1A1A' }}
       >
         {/* ── Header ── */}
         <div className="flex items-center gap-2 px-4 py-3 shrink-0" style={{ borderBottom: '1px solid #2e2e2e' }}>
@@ -304,7 +309,7 @@ export default function AIChat() {
             <AlignJustify className="w-4 h-4 text-gray-300" />
           </button>
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <Bot className="w-4 h-4 text-blue-400 shrink-0" />
+            <Bot className="w-4 h-4 shrink-0" style={{ color: '#3B82F6' }} />
             <span className="text-sm font-semibold text-white truncate">Cube AI Assistant</span>
           </div>
           <button
@@ -338,7 +343,7 @@ export default function AIChat() {
             <button
               onClick={startNewChat}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-colors"
-              style={{ background: '#1a73e8' }}
+              style={{ background: '#3B82F6' }}
             >
               <Plus className="w-3.5 h-3.5" /> New Chat
             </button>
@@ -393,7 +398,7 @@ export default function AIChat() {
                     {msg.content && (
                       <div
                         className="px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap"
-                        style={{ background: '#2d2d2d', color: '#e8e8e8', border: '1px solid #3a3a3a' }}
+                        style={{ background: '#2d2d2d', color: '#e8e8e8', border: '1px solid #3F3F3F' }}
                       >
                         {msg.content}
                       </div>
@@ -410,7 +415,7 @@ export default function AIChat() {
                   {prose && (
                     <div
                       className="px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap"
-                      style={{ background: '#2a2a2a', color: '#d4d4d4', border: '1px solid #333' }}
+                      style={{ background: '#2a2a2a', color: '#d4d4d4', border: '1px solid #3F3F3F' }}
                     >
                       {prose}
                     </div>
@@ -451,7 +456,7 @@ export default function AIChat() {
 
           {loading && (
             <div className="flex justify-start">
-              <div className="px-4 py-3 rounded-2xl" style={{ background: '#2a2a2a', border: '1px solid #333' }}>
+              <div className="px-4 py-3 rounded-2xl" style={{ background: '#2a2a2a', border: '1px solid #3F3F3F' }}>
                 <div className="flex gap-1.5 items-center h-4">
                   <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce [animation-delay:0ms]" />
                   <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce [animation-delay:150ms]" />
@@ -470,7 +475,7 @@ export default function AIChat() {
 
           <div
             className="rounded-2xl px-4 py-3 flex flex-col gap-3"
-            style={{ background: '#2a2a2a', border: '1px solid #3a3a3a' }}
+            style={{ background: '#222222', border: '1px solid #3F3F3F' }}
           >
             <textarea
               ref={inputRef}
@@ -484,8 +489,8 @@ export default function AIChat() {
               onKeyDown={handleKey}
               placeholder="Ask Cube AI Assistant"
               disabled={loading}
-              className="w-full text-sm leading-relaxed resize-none focus:outline-none disabled:opacity-50"
-              style={{ background: 'transparent', color: '#e0e0e0', overflowY: 'hidden', minHeight: 24 }}
+              className="w-full text-sm leading-relaxed resize-none focus:outline-none disabled:opacity-50 placeholder:text-[#52525B]"
+              style={{ background: 'transparent', color: '#F5F5F5', overflowY: 'hidden', minHeight: 24 }}
             />
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1">
@@ -505,7 +510,7 @@ export default function AIChat() {
                 onClick={() => sendText(input)}
                 disabled={!canSend}
                 className="w-8 h-8 rounded-full flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                style={{ background: canSend ? '#1a73e8' : '#3a3a3a' }}
+                style={{ background: canSend ? '#3B82F6' : '#3a3a3a' }}
               >
                 {loading
                   ? <Loader2 className="w-4 h-4 text-white animate-spin" />
@@ -520,7 +525,7 @@ export default function AIChat() {
             {showTips && (
               <div
                 className="mb-2 rounded-xl px-4 py-3 text-[11px] leading-relaxed space-y-1.5"
-                style={{ background: '#252525', border: '1px solid #333', color: '#aaa' }}
+                style={{ background: '#252525', border: '1px solid #3F3F3F', color: '#aaa' }}
               >
                 <p className="font-semibold" style={{ color: '#d4d4d4' }}>Tips for reviewing AI data:</p>
                 <p>• Cross-check totals using the <strong style={{ color: '#7ab4f5' }}>Export CSV</strong> feature on any chart.</p>

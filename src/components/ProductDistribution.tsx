@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePersistentState } from '../hooks/usePersistentState';
 import { Calendar, RotateCcw, Bot } from 'lucide-react';
+import { ChartCard } from './ChartCard';
 
 interface ProductData {
   product: string;
@@ -12,10 +13,18 @@ interface ProductDistributionProps {
   onViewSource?: () => void;
 }
 
+// Color palette - aligned with design system CSS variables
 const PALETTE = [
-  '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
-  '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16',
-  '#06b6d4', '#a855f7', '#e11d48', '#65a30d', '#0284c7',
+  '#2563EB', // --chart-blue (light)
+  '#22C55E', // --chart-green (light)
+  '#F97316', // --chart-amber (light)
+  '#EF4444', // --chart-red (light)
+  '#8B5CF6', // --chart-purple (light)
+  '#EC4899', // --chart-pink (light)
+  '#14B8A6', // --chart-teal (light)
+  '#6366F1', // --chart-indigo (light)
+  '#10B981', // fallback green
+  '#06B6D4', // fallback cyan
 ];
 
 
@@ -111,17 +120,17 @@ export default function ProductDistribution({ onViewSource: _onViewSource }: Pro
       {/* Summary cards */}
       {!loading && !error && data.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="bg-white dark:bg-midnight-900 rounded-xl p-4 border border-gray-200 dark:border-midnight-600 shadow-sm" style={{ borderLeft: '3px solid #8b5cf6' }}>
+          <div className="bg-white dark:bg-midnight-900 rounded-xl p-4 border border-gray-200 dark:border-midnight-600 shadow-sm" style={{ borderLeft: '3px solid var(--chart-purple)' }}>
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1">Unique Products</p>
             <p className="text-2xl font-bold text-purple-500 tabular-nums">{data.length}</p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">distinct types</p>
           </div>
-          <div className="bg-white dark:bg-midnight-900 rounded-xl p-4 border border-gray-200 dark:border-midnight-600 shadow-sm" style={{ borderLeft: '3px solid #3b82f6' }}>
+          <div className="bg-white dark:bg-midnight-900 rounded-xl p-4 border border-gray-200 dark:border-midnight-600 shadow-sm" style={{ borderLeft: '3px solid var(--chart-blue)' }}>
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1">Total Transactions</p>
             <p className="text-2xl font-bold text-blue-500 tabular-nums">{totalCount.toLocaleString()}</p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">trips recorded</p>
           </div>
-          <div className="bg-white dark:bg-midnight-900 rounded-xl p-4 border border-gray-200 dark:border-midnight-600 shadow-sm" style={{ borderLeft: '3px solid #10b981' }}>
+          <div className="bg-white dark:bg-midnight-900 rounded-xl p-4 border border-gray-200 dark:border-midnight-600 shadow-sm" style={{ borderLeft: '3px solid var(--chart-green)' }}>
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1">Total Gross Weight</p>
             <p className="text-2xl font-bold text-emerald-500 tabular-nums">
               {(totalWeight / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} t
@@ -132,37 +141,17 @@ export default function ProductDistribution({ onViewSource: _onViewSource }: Pro
       )}
 
       {/* ── Main panel ─────────────────────────────────────── */}
-      <div className="bg-white dark:bg-midnight-900 rounded-xl border border-gray-200 dark:border-midnight-600 shadow-sm overflow-hidden">
-
-        {/* Panel header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-midnight-700">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Distribution by Product</h3>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent('explain-chart', { detail: { message: 'Explain the Product Distribution chart. What does it show, how do I switch between Trips and Weight views, and what should I look for in the product breakdown?' } }))}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800/50 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors shrink-0"
-              title="Ask AI to explain this chart"
-            >
-              <Bot className="w-3.5 h-3.5" /> Explain
-            </button>
-            {/* Metric toggle */}
-            <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-midnight-600 text-xs font-medium">
-            {(['count', 'weight'] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => setMetric(m)}
-                className={`px-3 py-1.5 transition-colors ${
-                  metric === m
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white dark:bg-midnight-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-midnight-700'
-                }`}
-              >
-                {m === 'count' ? 'Trips' : 'Weight'}
-              </button>
-            ))}
-          </div>
-          </div>
-        </div>
+      <ChartCard 
+        title="Distribution by Product"
+        toggle={{
+          options: [
+            { label: 'Trips', value: 'count' },
+            { label: 'Weight', value: 'weight' }
+          ],
+          onChange: (v) => setMetric(v as 'count' | 'weight'),
+          current: metric
+        }}
+      >
 
         {loading ? (
           <div className="h-64 flex flex-col items-center justify-center gap-3">
@@ -178,7 +167,7 @@ export default function ProductDistribution({ onViewSource: _onViewSource }: Pro
             <p className="text-sm text-gray-400 dark:text-gray-500">No data for selected date range.</p>
           </div>
         ) : (
-          <div className="p-6 space-y-1">
+          <div className="space-y-1">
 
             {/* Column headers */}
             <div className="flex items-center gap-3 pb-2 border-b border-gray-100 dark:border-midnight-700 mb-3">
@@ -262,7 +251,7 @@ export default function ProductDistribution({ onViewSource: _onViewSource }: Pro
             })}
           </div>
         )}
-      </div>
+      </ChartCard>
     </div>
   );
 }

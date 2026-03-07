@@ -4,33 +4,81 @@ export default {
   darkMode: 'class', // Enable class-based dark mode
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['"DM Sans"', '"Plus Jakarta Sans"', 'sans-serif'],
+      },
       colors: {
-        // Midnight Enterprise Theme
+        // Design System - Light Mode
+        bg: {
+          page: '#EBEBEB',
+          card: '#FFFFFF',
+          elevated: '#F9F9F9',
+          input: '#F5F5F5',
+        },
+        text: {
+          primary: '#111111',
+          secondary: '#6B7280',
+          muted: '#9CA3AF',
+        },
+        border: {
+          DEFAULT: '#E5E7EB',
+        },
+        accent: '#1A1A1A',
+        state: {
+          blue: '#2563EB',
+          green: '#22C55E',
+          red: '#EF4444',
+          pink: '#EC4899',
+          amber: '#F97316',
+        },
+        // Dark Mode
+        dark: {
+          bg: {
+            page: '#111111',
+            card: '#1A1A1A',
+            elevated: '#222222',
+            input: '#2A2A2A',
+          },
+          text: {
+            primary: '#F5F5F5',
+            secondary: '#A1A1AA',
+            muted: '#52525B',
+          },
+          border: '#2E2E2E',
+          accent: '#FFFFFF',
+          state: {
+            blue: '#3B82F6',
+            green: '#4ADE80',
+            red: '#F87171',
+            pink: '#F472B6',
+            amber: '#FB923C',
+          },
+        },
+        // Midnight Enterprise Theme (legacy)
         midnight: {
-          950: '#0f172a', // Deep obsidian workspace
-          900: '#121212', // Alternative charcoal
-          800: '#1e293b', // Cards & containers
-          750: '#1a2332', // Intermediate shade
-          700: '#334155', // Lighter borders
-          600: '#475569', // Muted elements
+          950: '#0f172a',
+          900: '#121212',
+          800: '#1e293b',
+          750: '#1a2332',
+          700: '#334155',
+          600: '#475569',
         },
         enterprise: {
-          text: '#f8fafc',     // Primary text - off-white
-          silver: '#e2e8f0',   // Secondary text
-          muted: '#94a3b8',    // Tertiary text
+          text: '#f8fafc',
+          silver: '#e2e8f0',
+          muted: '#94a3b8',
         },
         neon: {
-          cyan: '#06b6d4',      // METPower signature cyan
-          'cyan-glow': '#22d3ee', // Glowing neon variant
-          'cyan-bright': '#67e8f9', // Brightest accent
+          cyan: '#06b6d4',
+          'cyan-glow': '#22d3ee',
+          'cyan-bright': '#67e8f9',
         },
         status: {
-          success: '#86efac',   // Pastel green (desaturated)
-          error: '#fca5a5',     // Pastel red (desaturated)
-          warning: '#fcd34d',   // Pastel amber
-          info: '#93c5fd',      // Pastel blue
+          success: '#86efac',
+          error: '#fca5a5',
+          warning: '#fcd34d',
+          info: '#93c5fd',
         },
-        // Keep existing slate for backwards compatibility
         slate: {
           850: '#1a202e',
         }

@@ -280,6 +280,18 @@ const buildTransacFilters = (query) => {
     inputs.push({ name: 'status', type: sql.NVarChar, value: status });
   }
 
+  const typeVeh = (query.typeVeh || '').trim();
+  if (typeVeh) {
+    whereClauses.push('type_veh = @typeVeh');
+    inputs.push({ name: 'typeVeh', type: sql.NVarChar, value: typeVeh });
+  }
+
+  const product = (query.product || '').trim();
+  if (product) {
+    whereClauses.push('product = @product');
+    inputs.push({ name: 'product', type: sql.NVarChar, value: product });
+  }
+
   // Safe date filtering: use [date] as primary, then transac_date, then inbound
   // We work entirely with dates (no time) and rely on TRY_CONVERT to avoid crashes
   // If useInbound=1, we prefer inbound over transac_date
@@ -568,6 +580,26 @@ sql.connect(config)
       res.json({ status: 'ok', timestamp: new Date().toISOString() });
     });
 
+    // Filter options – distinct values for dropdowns
+    app.get('/api/transac/filter-options', async (req, res) => {
+      try {
+        const pool = await sql.connect(dbConfig);
+        const result = await pool.request().query(`
+          SELECT DISTINCT type_veh FROM TRANSAC WHERE type_veh IS NOT NULL AND type_veh <> '' AND COALESCE(deleted_at, CAST(NULL AS DATETIME)) IS NULL ORDER BY type_veh;
+          SELECT DISTINCT product   FROM TRANSAC WHERE product   IS NOT NULL AND product   <> '' AND COALESCE(deleted_at, CAST(NULL AS DATETIME)) IS NULL ORDER BY product;
+          SELECT DISTINCT status    FROM TRANSAC WHERE status    IS NOT NULL AND status    <> '' AND COALESCE(deleted_at, CAST(NULL AS DATETIME)) IS NULL ORDER BY status;
+        `);
+        res.json({
+          vehicles : (result.recordsets[0] || []).map(r => r.type_veh),
+          products : (result.recordsets[1] || []).map(r => r.product),
+          statuses : (result.recordsets[2] || []).map(r => r.status),
+        });
+      } catch (err) {
+        console.error('Filter options error:', err);
+        res.status(500).json({ error: err.message });
+      }
+    });
+
     // Transaction data endpoint with pagination/filtering
     app.get('/api/transac', async (req, res) => {
       try {
@@ -646,6 +678,12 @@ sql.connect(config)
             [vessel_id],
             [weigher],
             [No_of_Bags] AS no_of_bags,
+            COALESCE(
+              TRY_CONVERT(datetime, [date]),
+              TRY_CONVERT(datetime, [transac_date]),
+              TRY_CONVERT(datetime, [inbound]),
+              TRY_CONVERT(datetime, [outbound])
+            ) AS resolved_date,
             COUNT(*) OVER() AS total_count
           FROM FTSS.dbo.transac
           ${whereSql}
@@ -1465,26 +1503,140 @@ sql.connect(config)
                           = CAST(GETDATE() AS DATE)
                 THEN 1 ELSE 0 END) as today_trips,
             SUM(CASE WHEN COALESCE(CAST([date] AS date), TRY_CONVERT(date, transac_date), TRY_CONVERT(date, inbound))
+                          = CAST(DATEADD(DAY,-1,GETDATE()) AS DATE)
+                THEN 1 ELSE 0 END) as yesterday_trips,
+            SUM(CASE WHEN COALESCE(CAST([date] AS date), TRY_CONVERT(date, transac_date), TRY_CONVERT(date, inbound))
                           >= DATEADD(DAY, -(DATEDIFF(DAY, '2000-01-03', GETDATE()) % 7), CAST(GETDATE() AS DATE))
-                THEN 1 ELSE 0 END) as week_trips
+                THEN 1 ELSE 0 END) as week_trips,
+            SUM(CASE WHEN COALESCE(CAST([date] AS date), TRY_CONVERT(date, transac_date), TRY_CONVERT(date, inbound))
+                          >= DATEADD(DAY, -(DATEDIFF(DAY, '2000-01-03', GETDATE()) % 7) - 7, CAST(GETDATE() AS DATE))
+                      AND COALESCE(CAST([date] AS date), TRY_CONVERT(date, transac_date), TRY_CONVERT(date, inbound))
+                          < DATEADD(DAY, -(DATEDIFF(DAY, '2000-01-03', GETDATE()) % 7), CAST(GETDATE() AS DATE))
+                THEN 1 ELSE 0 END) as last_week_trips,
+            SUM(CASE WHEN COALESCE(CAST([date] AS date), TRY_CONVERT(date, transac_date), TRY_CONVERT(date, inbound))
+                          = CAST(GETDATE() AS DATE)
+                      AND NULLIF(LTRIM(RTRIM([plate])), '') IS NULL
+                THEN 1 ELSE 0 END) as today_missing_plates,
+            SUM(CASE WHEN COALESCE(CAST([date] AS date), TRY_CONVERT(date, transac_date), TRY_CONVERT(date, inbound))
+                          = CAST(GETDATE() AS DATE)
+                      AND LOWER(LTRIM(RTRIM([status]))) = 'void'
+                THEN 1 ELSE 0 END) as today_void_count,
+            SUM(CASE WHEN COALESCE(CAST([date] AS date), TRY_CONVERT(date, transac_date), TRY_CONVERT(date, inbound))
+                          >= DATEADD(DAY,-7,CAST(GETDATE() AS DATE))
+                THEN TRY_CONVERT(DECIMAL(18,2), [net_weight]) ELSE 0 END) as this_week_net,
+            SUM(CASE WHEN COALESCE(CAST([date] AS date), TRY_CONVERT(date, transac_date), TRY_CONVERT(date, inbound))
+                          >= DATEADD(DAY,-14,CAST(GETDATE() AS DATE))
+                      AND COALESCE(CAST([date] AS date), TRY_CONVERT(date, transac_date), TRY_CONVERT(date, inbound))
+                          < DATEADD(DAY,-7,CAST(GETDATE() AS DATE))
+                THEN TRY_CONVERT(DECIMAL(18,2), [net_weight]) ELSE 0 END) as last_week_net
           FROM [FTSS].[dbo].[transac]
           WHERE [deleted_at] IS NULL
         `);
         const row = result.recordset[0] || {};
+        const thisWeekNet  = parseFloat(row.this_week_net  || 0);
+        const lastWeekNet  = parseFloat(row.last_week_net  || 0);
+        const netWoWPct    = lastWeekNet > 0 ? Math.round((thisWeekNet - lastWeekNet) / lastWeekNet * 100) : null;
         res.json({
-          totalRecords:      row.total_records      ?? 0,
-          totalGrossWeight:  row.total_gross_weight  != null ? parseFloat(row.total_gross_weight)  : null,
-          totalNetWeight:    row.total_net_weight    != null ? parseFloat(row.total_net_weight)    : null,
-          totalTareWeight:   row.total_tare_weight   != null ? parseFloat(row.total_tare_weight)   : null,
-          avgNetWeight:      row.avg_net_weight      != null ? parseFloat(row.avg_net_weight)      : null,
-          avgNetPayloadPct:  row.avg_net_payload_pct != null ? parseFloat(row.avg_net_payload_pct) : null,
-          avgTarePct:        row.avg_tare_pct        != null ? parseFloat(row.avg_tare_pct)        : null,
-          todayTrips:        row.today_trips         ?? 0,
-          weekTrips:         row.week_trips          ?? 0,
+          totalRecords:        row.total_records        ?? 0,
+          totalGrossWeight:    row.total_gross_weight   != null ? parseFloat(row.total_gross_weight)  : null,
+          totalNetWeight:      row.total_net_weight     != null ? parseFloat(row.total_net_weight)    : null,
+          totalTareWeight:     row.total_tare_weight    != null ? parseFloat(row.total_tare_weight)   : null,
+          avgNetWeight:        row.avg_net_weight       != null ? parseFloat(row.avg_net_weight)      : null,
+          avgNetPayloadPct:    row.avg_net_payload_pct  != null ? parseFloat(row.avg_net_payload_pct) : null,
+          avgTarePct:          row.avg_tare_pct         != null ? parseFloat(row.avg_tare_pct)        : null,
+          todayTrips:          row.today_trips          ?? 0,
+          yesterdayTrips:      row.yesterday_trips      ?? 0,
+          weekTrips:           row.week_trips           ?? 0,
+          lastWeekTrips:       row.last_week_trips      ?? 0,
+          todayMissingPlates:  row.today_missing_plates ?? 0,
+          todayVoidCount:      row.today_void_count     ?? 0,
+          netWoWPct,
         });
       } catch (err) {
         console.error('GET /api/analytics/weight-summary error:', err);
         res.status(500).json({ error: 'Failed to fetch weight summary', details: err.message });
+      }
+    });
+
+    // ── KPI sparkline — last N days of daily aggregates ─────────────────────
+    app.get('/api/analytics/sparkline', async (req, res) => {
+      try {
+        const days = Math.min(Math.max(parseInt(req.query.days) || 14, 2), 30);
+        const request = pool.request();
+        const result = await request.query(`
+          SELECT
+            CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) AS date) AS day,
+            COUNT(*) AS trips,
+            ISNULL(SUM(TRY_CONVERT(DECIMAL(18,2), [gross_weight])), 0) AS gross,
+            ISNULL(SUM(TRY_CONVERT(DECIMAL(18,2), [net_weight])),   0) AS net,
+            ISNULL(SUM(TRY_CONVERT(DECIMAL(18,2), [tare_weight])),  0) AS tare,
+            ISNULL(AVG(CASE WHEN TRY_CONVERT(DECIMAL(18,2), [gross_weight]) > 0
+                       THEN TRY_CONVERT(DECIMAL(18,2), [net_weight]) / TRY_CONVERT(DECIMAL(18,2), [gross_weight]) * 100
+                       ELSE NULL END), 0) AS avg_net_payload_pct,
+            ISNULL(AVG(TRY_CONVERT(DECIMAL(18,2), [net_weight])), 0) AS avg_net_weight
+          FROM [FTSS].[dbo].[transac]
+          WHERE COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound]))
+                >= CAST(DATEADD(DAY, -(${days - 1}), GETDATE()) AS DATE)
+            AND [deleted_at] IS NULL
+          GROUP BY CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound])) AS date)
+          ORDER BY day ASC
+        `);
+        res.json((result.recordset || []).map(r => ({
+          day:                r.day instanceof Date ? r.day.toISOString().split('T')[0] : r.day,
+          trips:              Number(r.trips)              || 0,
+          gross:              parseFloat(r.gross)          || 0,
+          net:                parseFloat(r.net)            || 0,
+          tare:               parseFloat(r.tare)           || 0,
+          avg_net_payload_pct: parseFloat(r.avg_net_payload_pct) || 0,
+          avg_net_weight:     parseFloat(r.avg_net_weight) || 0,
+        })));
+      } catch (err) {
+        console.error('GET /api/analytics/sparkline error:', err);
+        res.status(500).json({ error: 'Failed', details: err.message });
+      }
+    });
+
+    // ── Hourly Trips — real per-hour trip count for a given date ───────────
+    app.get('/api/analytics/hourly-trips', async (req, res) => {
+      try {
+        const dateStr = req.query.date
+          ? req.query.date
+          : new Date().toISOString().split('T')[0];
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr))
+          return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD.' });
+        const request = pool.request();
+        const result = await request.query(`
+          SELECT
+            DATEPART(hour, COALESCE(
+              TRY_CONVERT(datetime, [inbound]),
+              TRY_CONVERT(datetime, [transac_date]),
+              CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date])) AS datetime)
+            )) AS hour,
+            COUNT(*) AS trips
+          FROM [FTSS].[dbo].[transac]
+          WHERE
+            COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date]), TRY_CONVERT(date, [inbound]))
+              = CONVERT(date, '${dateStr}')
+            AND [deleted_at] IS NULL
+            AND COALESCE(
+              TRY_CONVERT(datetime, [inbound]),
+              TRY_CONVERT(datetime, [transac_date]),
+              CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date])) AS datetime)
+            ) IS NOT NULL
+          GROUP BY DATEPART(hour, COALESCE(
+            TRY_CONVERT(datetime, [inbound]),
+            TRY_CONVERT(datetime, [transac_date]),
+            CAST(COALESCE(CAST([date] AS date), TRY_CONVERT(date, [transac_date])) AS datetime)
+          ))
+          ORDER BY hour ASC
+        `);
+        res.json((result.recordset || []).map(r => ({
+          hour:  Number(r.hour),
+          trips: Number(r.trips) || 0,
+        })));
+      } catch (err) {
+        console.error('GET /api/analytics/hourly-trips error:', err);
+        res.status(500).json({ error: 'Failed', details: err.message });
       }
     });
 

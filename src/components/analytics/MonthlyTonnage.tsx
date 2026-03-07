@@ -4,13 +4,15 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, Cell,
 } from 'recharts';
-import { Calendar, RotateCcw, Bot } from 'lucide-react';
+import { Calendar, RotateCcw } from 'lucide-react';
 import { useDarkMode } from '../../hooks/useDarkMode';
+import { ChartCard } from '../ChartCard';
+import { chartGridConfig, chartXAxisConfig, chartTooltipConfig, chartTooltipConfigDark } from '../../utils/chartConfig';
 
 interface RawRow { year: number; month: number; total_weight: number; trips: number; }
 
 const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const YEAR_COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899'];
+const YEAR_COLORS = ['var(--chart-blue)','var(--chart-green)','var(--chart-amber)','var(--chart-red)','var(--chart-purple)','var(--chart-pink)'];
 
 export default function MonthlyTonnage() {
   const isDark = useDarkMode();
@@ -63,12 +65,6 @@ export default function MonthlyTonnage() {
     return row;
   });
 
-  const axisColor  = isDark ? '#9ca3af' : '#6b7280';
-  const gridColor  = isDark ? '#374151' : '#e5e7eb';
-  const tooltipBg  = isDark ? '#1e2433' : '#ffffff';
-  const tooltipBdr = isDark ? '#374151' : '#d1d5db';
-  const tooltipTxt = isDark ? '#f3f4f6' : '#111827';
-
   const yLabel = metric === 'weight' ? 'Tonnes (t)' : 'Trips';
   const fmtY   = (v: number) => metric === 'weight' ? `${v.toLocaleString()} t` : v.toLocaleString();
   const fmtTip = (v: number) => metric === 'weight' ? `${v.toLocaleString()} t` : `${v.toLocaleString()} trips`;
@@ -96,34 +92,16 @@ export default function MonthlyTonnage() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-midnight-900 rounded-xl border border-gray-200 dark:border-midnight-600 shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-midnight-700">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Monthly Tonnage Comparison (Year-over-Year)</h3>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                const years = [...new Set(raw.map(r => r.year))].sort().join(', ');
-                const total = raw.reduce((s, r) => s + (metric === 'weight' ? r.total_weight : r.trips), 0);
-                const peak = raw.length ? raw.reduce((a, b) => (metric === 'weight' ? b.total_weight : b.trips) > (metric === 'weight' ? a.total_weight : a.trips) ? b : a) : null;
-                const peakLabel = peak ? `${MONTH_SHORT[peak.month - 1]} ${peak.year}` : 'n/a';
-                window.dispatchEvent(new CustomEvent('explain-chart', { detail: { message: `Explain the Monthly Tonnage chart (${startDate} to ${endDate}). Years shown: ${years || 'n/a'}. Currently viewing: ${metric === 'weight' ? 'tonnage' : 'trips'}. Total: ${metric === 'weight' ? (total/1000).toFixed(1)+'t' : total+' trips'}. Peak month: ${peakLabel}. What seasonal patterns are visible, how does year-over-year compare, are there concerning drops or spikes, and what should be done?` } }));
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800/50 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors shrink-0"
-              title="Ask AI to explain this chart"
-            >
-              <Bot className="w-3.5 h-3.5" /> Explain
-            </button>
-            <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-midnight-600 text-xs font-medium">
-              {(['weight','trips'] as const).map(m => (
-                <button key={m} onClick={() => setMetric(m)}
-                  className={`px-3 py-1.5 transition-colors ${metric === m ? 'bg-blue-600 text-white' : 'bg-white dark:bg-midnight-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-midnight-700'}`}>
-                  {m === 'weight' ? 'Tonnage' : 'Trips'}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
+      <ChartCard
+        title="Monthly Tonnage Comparison (Year-over-Year)"
+        toggle={{
+          options: [
+            { label: 'Tonnage', value: 'weight' },
+            { label: 'Trips', value: 'trips' }
+          ],
+          onChange: (v) => setMetric(v as 'weight' | 'trips'),
+          current: metric
+        }}>
         {loading ? (
           <div className="h-80 flex flex-col items-center justify-center gap-3">
             <div className="animate-spin rounded-full h-7 w-7 border-2 border-blue-500 border-t-transparent" />
@@ -134,33 +112,24 @@ export default function MonthlyTonnage() {
         ) : raw.length === 0 ? (
           <div className="h-80 flex items-center justify-center"><p className="text-sm text-gray-400 dark:text-gray-500">No data.</p></div>
         ) : (
-          <div className="p-6">
-            <ResponsiveContainer width="100%" height={340}>
-              <BarChart data={pivoted} margin={{ top: 4, right: 20, left: 10, bottom: 0 }} barCategoryGap="20%">
-                <CartesianGrid vertical={false} stroke={gridColor} strokeDasharray="3 3" />
-                <XAxis dataKey="month" tick={{ fill: axisColor, fontSize: 12 }} tickLine={false} axisLine={{ stroke: gridColor }} />
-                <YAxis tickFormatter={fmtY} tick={{ fill: axisColor, fontSize: 11 }} tickLine={false} axisLine={false}
-                  label={{ value: yLabel, angle: -90, position: 'insideLeft', fill: axisColor, fontSize: 11, dy: 40 }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBdr}`, borderRadius: 8, color: tooltipTxt, fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
-                  labelStyle={{ color: tooltipTxt, fontWeight: 600 }}
-                  formatter={(v: any) => [fmtTip(v as number)]}
-                />
-                <Legend
-                  formatter={(value) => <span style={{ color: axisColor, fontSize: 12 }}>{value}</span>}
-                />
-                {years.map((y, i) => (
-                  <Bar key={y} dataKey={String(y)} name={String(y)} fill={YEAR_COLORS[i % YEAR_COLORS.length]} radius={[3, 3, 0, 0]}>
-                    {pivoted.map((_, mi) => (
-                      <Cell key={mi} fill={YEAR_COLORS[i % YEAR_COLORS.length]} />
-                    ))}
-                  </Bar>
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <ResponsiveContainer width="100%" height={340}>
+            <BarChart data={pivoted} margin={{ top: 4, right: 20, left: -20, bottom: 0 }} barCategoryGap="20%">
+              <CartesianGrid {...chartGridConfig} />
+              <XAxis {...chartXAxisConfig} dataKey="month" />
+              <YAxis hide={false} tickFormatter={fmtY} label={{ value: yLabel, angle: -90, position: 'insideLeft', fill: 'var(--text-secondary)', fontSize: 11, dy: 40 }} />
+              <Tooltip {...(isDark ? chartTooltipConfigDark : chartTooltipConfig)} formatter={(v: any) => [fmtTip(v as number)]} />
+              <Legend />
+              {years.map((y, i) => (
+                <Bar key={y} dataKey={String(y)} name={String(y)} fill={YEAR_COLORS[i % YEAR_COLORS.length]} radius={[3, 3, 0, 0]}>
+                  {pivoted.map((_, mi) => (
+                    <Cell key={mi} fill={YEAR_COLORS[i % YEAR_COLORS.length]} />
+                  ))}
+                </Bar>
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
         )}
-      </div>
+      </ChartCard>
     </div>
   );
 }

@@ -14,9 +14,11 @@ import {
   CheckSquare,
   Square,
   Package,
-  AlertCircle
+  AlertCircle,
+  Filter,
+  ChevronDown,
 } from 'lucide-react';
-import { transacApi, CalendarData, CalendarDay } from '../services/transacApi';
+import { transacApi, CalendarData, CalendarDay, FilterOptions } from '../services/transacApi';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { format } from 'date-fns';
@@ -52,24 +54,46 @@ type ColumnKey = keyof Transaction;
 interface ColumnDefinition {
   key: ColumnKey;
   label: string;
+  group: string;
+  w: number;
   sortable?: boolean;
+  frozen?: boolean;
+  mono?: boolean;
+  align?: 'left' | 'right' | 'center';
+  accent?: string;
   className?: string;
   render?: (row: Transaction) => React.ReactNode;
 }
+
+const GRP_COLOR: Record<string, string> = {
+  Identity:    '#3B82F6',
+  Vehicle:     '#8B5CF6',
+  Product:     '#22C55E',
+  Weight:      '#F97316',
+  Time:        '#14B8A6',
+  Logistics:   '#6366F1',
+  Destination: '#EC4899',
+  Ops:         '#9CA3AF',
+};
+
+const STATUS_CFG: Record<string, { bg: string; color: string; dot: string }> = {
+  Valid:     { bg: '#DCFCE7', color: '#16A34A', dot: '#22C55E' },
+  Cancelled: { bg: '#FEE2E2', color: '#DC2626', dot: '#EF4444' },
+  Void:      { bg: '#F3F4F6', color: '#6B7280', dot: '#9CA3AF' },
+  Pending:   { bg: '#FEF3C7', color: '#D97706', dot: '#F97316' },
+};
 
 // Safe cell rendering function with highlighting
 const renderCellContent = (transaction: Transaction, column: ColumnDefinition, searchTerm: string) => {
   try {
     if (column.render) {
       const rendered = column.render(transaction);
-      // If there's a search term and the rendered content is text, apply highlighting
       if (searchTerm.trim() && typeof rendered === 'string') {
         return <HighlightText text={rendered} highlight={searchTerm} />;
       }
       return rendered;
     } else {
       const value = getTransactionValue(transaction, column.key);
-      // Apply highlighting to plain text values
       if (searchTerm.trim()) {
         return <HighlightText text={value} highlight={searchTerm} />;
       }
@@ -91,80 +115,63 @@ const getTransactionValue = (transaction: Transaction, key: ColumnKey): string =
 };
 
 const formatWeight = (value?: number | null | string) => {
-  if (value === null || value === undefined || value === '') return '-';
+  if (value === null || value === undefined || value === '') return '—';
   const numericValue = Number(value);
   if (Number.isNaN(numericValue)) return String(value);
   return `${numericValue.toLocaleString()} kg`;
 };
 
 const formatDateTime = (dateString?: string | null) => {
-  if (!dateString) return '-';
+  if (!dateString) return '—';
   try {
-    return format(new Date(dateString), 'MMM dd, yyyy HH:mm');
+    const normalized = typeof dateString === 'string' ? dateString.replace(' ', 'T') : dateString;
+    return format(new Date(normalized), 'MMM dd, yyyy HH:mm');
   } catch {
     return dateString;
   }
 };
 
 const TABLE_COLUMNS: ColumnDefinition[] = [
-  { key: 'id', label: 'ID', sortable: true, render: (row) => `#${row.id}` },
-  { key: 'trans_no', label: 'Transaction No.', sortable: true },
-  { key: 'barge_details', label: 'Barge Details', sortable: true },
-  {
-    key: 'plate',
-    label: 'Plate',
-    sortable: true,
-    render: (row) =>
-      row.plate ? (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-          {row.plate}
-        </span>
-      ) : (
-        '-'
-      )
-  },
-  { key: 'initial_net_wt', label: 'Initial Net Wt.', sortable: true, render: (row) => formatWeight(row.initial_net_wt) },
-  { key: 'inbound', label: 'Inbound Date/Time', sortable: true, render: (row) => formatDateTime(row.inbound) },
-  { key: 'outbound', label: 'Outbound Date/Time', sortable: true, render: (row) => formatDateTime(row.outbound) },
-  { key: 'driver', label: 'Driver', sortable: true },
-  { key: 'type_veh', label: 'Vehicle Type', sortable: true },
-  { key: 'product', label: 'Product', sortable: true },
-  { key: 'ws_no', label: 'WS No.', sortable: true },
-  { key: 'dr_no', label: 'DR No.', sortable: true },
-  { key: 'del_comp', label: 'Company', sortable: true, className: 'min-w-[120px]' },
-  { key: 'del_address', label: 'Delivery Address', sortable: true, className: 'min-w-[150px]' },
-  { key: 'gross_weight', label: 'Gross Weight', sortable: true, render: (row) => formatWeight(row.gross_weight) },
-  { key: 'tare_weight', label: 'Tare Weight', sortable: true, render: (row) => formatWeight(row.tare_weight) },
-  { key: 'net_weight', label: 'Net Weight', sortable: true, render: (row) => formatWeight(row.net_weight) },
-  { key: 'inbound_wt', label: 'Inbound Weight', sortable: true, render: (row) => formatWeight(row.inbound_wt) },
-  { key: 'outbound_wt', label: 'Outbound Weight', sortable: true, render: (row) => formatWeight(row.outbound_wt) },
-  { key: 'remarks', label: 'Remarks', sortable: true, className: 'min-w-[200px]' },
-  { key: 'transac_date', label: 'Transaction Date', sortable: true, render: (row) => formatDateTime(row.transac_date) },
-  { key: 'date', label: 'Date', sortable: true, render: (row) => formatDateTime(row.date) },
-  {
-    key: 'status',
-    label: 'Status',
-    sortable: true,
-    render: (row) => (
-      <span
-        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          row.status === 'Valid'
-            ? 'bg-green-100 text-green-800'
-            : row.status === 'Pending'
-            ? 'bg-yellow-100 text-yellow-800'
-            : row.status === 'Void'
-            ? 'bg-gray-100 text-gray-800'
-            : 'bg-red-100 text-red-800'
-        }`}
-      >
-        {row.status || 'Unknown'}
-      </span>
-    )
-  },
-  { key: 'vessel_id', label: 'Vessel ID', sortable: true },
-  { key: 'weigher', label: 'Weigher', sortable: true },
-  { key: 'no_of_bags', label: 'No. of Bags', sortable: true }
+  { key: 'id',            label: 'ID',           group: 'Identity',    w: 88,  sortable: true, mono: true, frozen: true },
+  { key: 'trans_no',      label: 'Txn No.',      group: 'Identity',    w: 158, sortable: true, mono: true, frozen: true },
+  { key: 'status',        label: 'Status',       group: 'Identity',    w: 114, sortable: true, frozen: true },
+  { key: 'plate',         label: 'Plate',        group: 'Vehicle',     w: 112, sortable: true, mono: true },
+  { key: 'type_veh',      label: 'Vehicle Type', group: 'Vehicle',     w: 130, sortable: true },
+  { key: 'driver',        label: 'Driver',       group: 'Vehicle',     w: 148, sortable: true },
+  { key: 'product',       label: 'Product',      group: 'Product',     w: 160, sortable: true },
+  { key: 'no_of_bags',    label: 'No. of Bags',  group: 'Product',     w: 108, sortable: true, mono: true, align: 'right' },
+  { key: 'gross_weight',  label: 'Gross Wt',     group: 'Weight',      w: 110, sortable: true, mono: true, align: 'right' },
+  { key: 'tare_weight',   label: 'Tare Wt',      group: 'Weight',      w: 110, sortable: true, mono: true, align: 'right' },
+  { key: 'net_weight',    label: 'Net Wt',        group: 'Weight',      w: 108, sortable: true, mono: true, align: 'right', accent: 'green' },
+  { key: 'initial_net_wt',label: 'Init. Net Wt', group: 'Weight',      w: 120, sortable: true, mono: true, align: 'right' },
+  { key: 'inbound_wt',    label: 'In. Weight',   group: 'Weight',      w: 114, sortable: true, mono: true, align: 'right' },
+  { key: 'outbound_wt',   label: 'Out. Weight',  group: 'Weight',      w: 118, sortable: true, mono: true, align: 'right' },
+  { key: 'inbound',       label: 'Inbound',      group: 'Time',        w: 160, sortable: true, mono: true,
+    render: (row) => formatDateTime(row.inbound) },
+  { key: 'outbound',      label: 'Outbound',     group: 'Time',        w: 160, sortable: true, mono: true,
+    render: (row) => formatDateTime(row.outbound) },
+  { key: 'transac_date',  label: 'Txn Date',     group: 'Time',        w: 118, sortable: true, mono: true,
+    render: (row) => formatDateTime(row.transac_date) },
+  { key: 'date',          label: 'Date',         group: 'Time',        w: 110, sortable: true, mono: true,
+    render: (row) => formatDateTime(row.date) },
+  { key: 'barge_details', label: 'Barge',        group: 'Logistics',   w: 110, sortable: true },
+  { key: 'ws_no',         label: 'WS No.',       group: 'Logistics',   w: 110, sortable: true, mono: true },
+  { key: 'dr_no',         label: 'DR No.',       group: 'Logistics',   w: 110, sortable: true, mono: true },
+  { key: 'vessel_id',     label: 'Vessel ID',    group: 'Logistics',   w: 112, sortable: true, mono: true },
+  { key: 'del_comp',      label: 'Company',      group: 'Destination', w: 148, sortable: true },
+  { key: 'del_address',   label: 'Delivery',     group: 'Destination', w: 148, sortable: true },
+  { key: 'weigher',       label: 'Weigher',      group: 'Ops',         w: 128, sortable: true },
+  { key: 'remarks',       label: 'Remarks',      group: 'Ops',         w: 180, sortable: true },
 ];
+
+// ── Saved Views ─────────────────────────────────────────────────────────────
+const ALL_COL_KEYS = TABLE_COLUMNS.map(c => c.key as string);
+const SAVED_VIEWS: Record<string, { label: string; iconType: 'operator'|'logistics'|'finance'|'all'; cols: string[] }> = {
+  'Operator':    { label:'Operator',    iconType:'operator',  cols:['id','trans_no','status','plate','type_veh','driver','product','net_weight','inbound','outbound'] },
+  'Logistics':   { label:'Logistics',   iconType:'logistics', cols:['id','trans_no','status','product','no_of_bags','net_weight','barge_details','ws_no','dr_no','vessel_id','del_comp'] },
+  'Finance':     { label:'Finance',     iconType:'finance',   cols:['id','trans_no','status','product','no_of_bags','gross_weight','tare_weight','net_weight','initial_net_wt','del_comp','del_address','weigher','transac_date'] },
+  'All Columns': { label:'All Columns', iconType:'all',       cols: ALL_COL_KEYS },
+};
 
 interface TransactionTableProps {
   transactions: Transaction[];
@@ -187,6 +194,15 @@ interface TransactionTableProps {
   startDate?: Date | null;
   endDate?: Date | null;
   highlightTransId?: number | null;
+  highlightMode?: string | null;
+  // Column filters
+  statusFilter?: string | null;
+  vehicleFilter?: string | null;
+  productFilter?: string | null;
+  onStatusFilterChange?: (v: string | null) => void;
+  onVehicleFilterChange?: (v: string | null) => void;
+  onProductFilterChange?: (v: string | null) => void;
+  filterOptions?: FilterOptions;
 }
 
 const TransactionTable: React.FC<TransactionTableProps> = ({
@@ -210,6 +226,14 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
   startDate,
   endDate,
   highlightTransId,
+  highlightMode,
+  statusFilter,
+  vehicleFilter,
+  productFilter,
+  onStatusFilterChange,
+  onVehicleFilterChange,
+  onProductFilterChange,
+  filterOptions,
 }) => {
   const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
 
@@ -247,13 +271,205 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
   // Memoize table columns for performance
   const MEMOIZED_TABLE_COLUMNS = useMemo(() => TABLE_COLUMNS, []);
 
-  // Server-driven search - no client-side filtering needed
+  // ── Enhancement 1: Column Resizing ───────────────────────────────────────
+  const [colWidths, setColWidths] = useState<Record<string, number>>({});
+  const resizingRef = useRef<{ key: string; startX: number; startW: number } | null>(null);
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      const r = resizingRef.current;
+      if (!r) return;
+      const newW = Math.min(400, Math.max(60, r.startW + (e.clientX - r.startX)));
+      setColWidths(prev => ({ ...prev, [r.key]: newW }));
+    };
+    const onMouseUp = () => {
+      if (resizingRef.current) {
+        resizingRef.current = null;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }, []);
+
+  // ── Enhancement 2: Inline Status Editing ─────────────────────────────────
+  const [editingStatus, setEditingStatus] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (editingStatus === null) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-status-popover]')) setEditingStatus(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [editingStatus]);
+
+  // ── Enhancement 3: Pin/Unpin Columns ─────────────────────────────────────
+  const LOCKED_PINS = new Set(['id', 'trans_no', 'status']);
+  const [pinnedCols, setPinnedCols] = useState<Set<string>>(new Set(['id', 'trans_no', 'status']));
+
+  const togglePin = (key: string) => {
+    if (LOCKED_PINS.has(key)) return;
+    setPinnedCols(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  // ── Enhancement 5: Row Hover Preview ─────────────────────────────────────
+  const [hoverRow, setHoverRow] = useState<Transaction | null>(null);
+  const [hoverY, setHoverY] = useState(0);
+
+  // ── Reference design: density + row expansion ─────────────────────────────
+  const [density, setDensity] = useState<'compact' | 'default' | 'comfortable'>('default');
+  const [expandedRow, setExpandedRow] = useState<number | null>(null);
+  const [expandedTab, setExpandedTab] = useState<string>('Identity');
+
+  // ── Saved Views ───────────────────────────────────────────────────────────
+  const [activeView, setActiveView]         = useState<string>('All Columns');
+  const [hiddenCols, setHiddenCols]         = useState<Set<string>>(new Set());
+  const [showViewsDropdown, setShowViewsDropdown] = useState(false);
+  const [showColsPanel, setShowColsPanel]   = useState(false);
+  const viewsDropdownRef = useRef<HTMLDivElement>(null);
+  const colsPanelRef     = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (viewsDropdownRef.current && !viewsDropdownRef.current.contains(e.target as Node)) setShowViewsDropdown(false);
+      if (colsPanelRef.current     && !colsPanelRef.current.contains(e.target as Node))     setShowColsPanel(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const applyView = (viewName: string) => {
+    setActiveView(viewName);
+    if (viewName === 'All Columns') {
+      setHiddenCols(new Set());
+    } else {
+      const visible = new Set(SAVED_VIEWS[viewName].cols);
+      setHiddenCols(new Set(ALL_COL_KEYS.filter(k => !visible.has(k))));
+    }
+    setShowViewsDropdown(false);
+  };
+
+  const toggleColVisibility = (key: string) => {
+    setHiddenCols(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+    setActiveView('Custom');
+  };
+
+  const visibleColCount = ALL_COL_KEYS.length - hiddenCols.size;
+
+  const orderedCols = useMemo(() => {
+    const pinned = MEMOIZED_TABLE_COLUMNS.filter(c => pinnedCols.has(c.key as string) && !hiddenCols.has(c.key as string));
+    const rest   = MEMOIZED_TABLE_COLUMNS.filter(c => !pinnedCols.has(c.key as string) && !hiddenCols.has(c.key as string));
+    return [...pinned, ...rest];
+  }, [MEMOIZED_TABLE_COLUMNS, pinnedCols, hiddenCols]);
+
+  // Layout constants
+  const CB_W  = 44;
+  const ACT_W = 130;
+  const ROW_H = { compact: 38, default: 52, comfortable: 68 }[density];
+
+  // Frozen column layout
+  const frozenCols    = orderedCols.filter(c => pinnedCols.has(c.key as string));
+  const lastFrozenKey = frozenCols.length ? frozenCols[frozenCols.length - 1].key as string : null;
+
+  const frozenLeft = useMemo(() => {
+    const m: Record<string, number> = {};
+    let off = CB_W + ACT_W;
+    orderedCols.forEach(c => {
+      if (pinnedCols.has(c.key as string)) {
+        m[c.key as string] = off;
+        off += (colWidths[c.key as string] ?? c.w);
+      }
+    });
+    return m;
+  }, [orderedCols, pinnedCols, colWidths]);
+
+  const buildGroupSpans = (cols: ColumnDefinition[]) => {
+    const spans: { group: string; span: number }[] = [];
+    let cur = ''; let count = 0;
+    cols.forEach(c => {
+      if (c.group !== cur) {
+        if (cur) spans.push({ group: cur, span: count });
+        cur = c.group; count = 1;
+      } else { count++; }
+    });
+    if (cur) spans.push({ group: cur, span: count });
+    return spans;
+  };
+
+  const allGroups        = [...new Set(orderedCols.map(c => c.group))];
+  const frozenGroupSpans = buildGroupSpans(frozenCols);
+  const scrollGroupSpans = buildGroupSpans(orderedCols.filter(c => !pinnedCols.has(c.key as string)));
+
+  // Glassmorphism tokens (dark mode aware)
+  const isDark = document.documentElement.classList.contains('dark');
+  const frzBg     = isDark ? 'rgba(18,18,18,0.85)'   : 'rgba(255,255,255,0.85)';
+  const frzBgSel  = isDark ? 'rgba(30,58,95,0.90)'    : 'rgba(239,246,255,0.90)';
+  const frzBgHd   = isDark ? 'rgba(12,12,12,0.92)'    : 'rgba(249,250,251,0.92)';
+  const frzBlur   = 'blur(12px) saturate(1.6)';
+  const frzBrd    = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
+  const frzShd    = isDark
+    ? '4px 0 24px rgba(0,0,0,0.7), inset -1px 0 0 rgba(255,255,255,0.04)'
+    : '4px 0 20px rgba(0,0,0,0.10), inset -1px 0 0 rgba(0,0,0,0.04)';
+
+  // Inline cell renderer (reference design style)
+  const renderCell = (transaction: Transaction, col: ColumnDefinition): React.ReactNode => {
+    const v = transaction[col.key];
+    const str = String(v ?? '');
+    if (col.key === 'id') return (
+      <span style={{ fontSize: 12, fontWeight: 800, color: isDark ? '#60A5FA' : '#2563EB', fontFamily: "'DM Mono',monospace" }}>#{str}</span>
+    );
+    if (col.key === 'status') {
+      const sc = STATUS_CFG[str] || STATUS_CFG['Void'];
+      return (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: sc.bg, color: sc.color, borderRadius: 999, padding: '3px 9px', fontSize: 11, fontWeight: 700 }}>
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: sc.dot, flexShrink: 0 }} />
+          {str || 'Unknown'}
+        </span>
+      );
+    }
+    if (col.key === 'plate' && !str) return (
+      <span style={{ color: '#F97316', fontSize: 11, fontStyle: 'italic', opacity: 0.75 }}>No plate</span>
+    );
+    if (col.key === 'net_weight') return (
+      <span style={{ fontSize: 13, fontWeight: 800, color: isDark ? '#4ADE80' : '#16A34A', fontFamily: "'DM Mono',monospace" }}>{formatWeight(v as number)}</span>
+    );
+    if (['gross_weight','tare_weight','initial_net_wt','inbound_wt','outbound_wt'].includes(col.key as string))
+      return <span style={{ fontSize: 12, fontFamily: "'DM Mono',monospace", color: isDark ? '#D4D4D8' : '#374151' }}>{formatWeight(v as number)}</span>;
+    if (!str) return <span style={{ color: isDark ? '#3F3F46' : '#D1D5DB', fontSize: 12 }}>—</span>;
+    if (col.render) {
+      const rendered = col.render(transaction);
+      return <span style={{ fontSize: 12, fontFamily: col.mono ? "'DM Mono',monospace" : "'DM Sans',sans-serif", color: col.mono ? (isDark ? '#E4E4E7' : '#374151') : (isDark ? '#A1A1AA' : '#6B7280') }}>{rendered}</span>;
+    }
+    return (
+      <span style={{ fontSize: 12, color: col.mono ? (isDark ? '#E4E4E7' : '#374151') : (isDark ? '#A1A1AA' : '#6B7280'), fontFamily: col.mono ? "'DM Mono',monospace" : "'DM Sans',sans-serif", whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: (col.w || 120) - 16, display: 'block' }}>
+        {str}
+      </span>
+    );
+  };
 
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [modalMode, setModalMode] = useState<'view' | 'edit'>('view');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [dateQuick, setDateQuick] = useState<'today'|'yesterday'|'week'|'month'|'custom'|null>(null);
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [calendarData, setCalendarData] = useState<CalendarData | null>(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
   
@@ -1168,34 +1384,28 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
     }
   };
 
-  const headerCells = useMemo(
-    () =>
-      MEMOIZED_TABLE_COLUMNS.map((column: ColumnDefinition) => {
-        if (!column.sortable) {
-          return (
-            <span key={column.key as string} className="text-left w-full">
-              {column.label}
-            </span>
-          );
-        }
+  const headerCells = useMemo(() => {
+    const cells: Record<string, React.ReactNode> = {};
+    MEMOIZED_TABLE_COLUMNS.forEach((column: ColumnDefinition) => {
+      if (!column.sortable) {
+        cells[column.key as string] = <span className="text-left w-full">{column.label}</span>;
+      } else {
         const isActive = sortBy === (column.key as string);
         const directionSymbol = sortDir === 'ASC' ? '↑' : '↓';
-        return (
+        cells[column.key as string] = (
           <button
-            key={column.key as string}
             onClick={() => onSortChange(column.key as string)}
-            className={`flex items-center space-x-1 text-left w-full hover:text-blue-600 transition-colors ${
-              isActive ? 'text-blue-600' : ''
-            }`}
+            className={`flex items-center space-x-1 text-left w-full hover:text-blue-600 transition-colors ${isActive ? 'text-blue-600' : ''}`}
           >
             <span>{column.label}</span>
             <ArrowUpDown className="h-3 w-3" />
             {isActive && <span className="text-xs">{directionSymbol}</span>}
           </button>
         );
-      }),
-    [onSortChange, sortBy, sortDir, MEMOIZED_TABLE_COLUMNS]
-  );
+      }
+    });
+    return cells;
+  }, [onSortChange, sortBy, sortDir, MEMOIZED_TABLE_COLUMNS]);
 
   // Server-driven pagination - use server data directly
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -1251,6 +1461,20 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
   };
 
   return (
+    <>
+    <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+      @keyframes slideInHoverPanel{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
+      @keyframes txFadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+      .tx-grp-th{font-size:9px;font-weight:800;letter-spacing:0.07em;text-transform:uppercase;padding:4px 12px;white-space:nowrap;position:sticky;top:0;z-index:30;border-right:1px solid;border-bottom:1px solid;}
+      .tx-col-th{font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;padding:0 12px;white-space:nowrap;cursor:pointer;user-select:none;border-right:1px solid;border-bottom:1px solid;position:sticky;transition:filter 0.12s;}
+      .tx-col-th:hover{filter:brightness(0.96);}
+      .tx-sort-ic{opacity:0.2;margin-left:3px;display:inline-flex;vertical-align:middle;transition:opacity 0.12s;}
+      .tx-sort-ic.on{opacity:1;}
+      .tx-td-cell{padding:0 12px;border-right:1px solid;border-bottom:1px solid;vertical-align:middle;overflow:hidden;transition:background 0.1s;}
+      .tx-frozen-glass{-webkit-backdrop-filter:blur(12px) saturate(1.6);backdrop-filter:blur(12px) saturate(1.6);}
+      .tx-tr-expand td{background:rgba(59,130,246,0.04)!important;}
+    `}</style>
     <div className="min-h-screen">
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
         {/* Header Section */}
@@ -1271,93 +1495,298 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                   <button
                     onClick={() => onRefresh()}
                     disabled={refreshing || loading}
-                    className="flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-neon-cyan-glow dark:hover:bg-neon-cyan-bright text-white font-medium rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="btn-primary"
                     title="Refresh data"
                   >
                     <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                    <span className="hidden sm:inline ml-2">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+                    <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
                   </button>
+                  {/* Row density toggle */}
+                  <div style={{ display: 'flex', border: '1px solid', borderColor: 'var(--border, #E5E7EB)', borderRadius: 8, overflow: 'hidden' }}>
+                    {([['compact','≡','Compact'],['default','☰','Default'],['comfortable','⊟','Comfortable']] as const).map(([d, icon, label], i) => (
+                      <button key={d} onClick={() => setDensity(d)} title={`${label} rows`}
+                        style={{ width: 30, height: 32, background: density === d ? 'var(--text-primary,#111)' : 'transparent', color: density === d ? 'white' : 'var(--text-muted,#9CA3AF)', border: 'none', borderRight: i < 2 ? '1px solid var(--border,#E5E7EB)' : 'none', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.12s', fontFamily: 'inherit' }}>
+                        {icon}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Saved Views dropdown */}
+                  <div ref={viewsDropdownRef} style={{ position:'relative' }}>
+                    <button
+                      onClick={() => { setShowViewsDropdown(v => !v); setShowColsPanel(false); }}
+                      style={{ display:'flex', alignItems:'center', gap:6, padding:'0 12px', height:36, borderRadius:8, border: showViewsDropdown ? '1px solid #1F2937' : '1px solid #E5E7EB', background: showViewsDropdown ? '#1F2937' : 'white', color: showViewsDropdown ? 'white' : '#374151', cursor:'pointer', fontSize:13, fontWeight:600, fontFamily:"'DM Sans',sans-serif", transition:'all 0.12s', whiteSpace:'nowrap' }}
+                      title="Switch column view preset"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                      <span className="hidden sm:inline">{activeView}</span>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ opacity:0.6 }}><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    {showViewsDropdown && (
+                      <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, zIndex:200, background:'white', border:'1px solid #E5E7EB', borderRadius:12, boxShadow:'0 8px 32px rgba(0,0,0,0.14)', width:240, overflow:'hidden' }} className="dark:bg-midnight-800 dark:border-midnight-600">
+                        <div style={{ padding:'10px 14px 6px', fontSize:10, fontWeight:800, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.08em', fontFamily:"'DM Sans',sans-serif" }}>Saved Views</div>
+                        {Object.entries(SAVED_VIEWS).map(([key, view]) => {
+                          const icons: Record<string, React.ReactNode> = {
+                            operator:  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>,
+                            logistics: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 5v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
+                            finance:   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>,
+                            all:       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
+                          };
+                          const isActive = activeView === key;
+                          return (
+                            <button key={key} onClick={() => applyView(key)}
+                              style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'9px 14px', border:'none', cursor:'pointer', fontSize:13, fontWeight: isActive ? 600 : 400, background: isActive ? '#EFF6FF' : 'transparent', color: isActive ? '#1D4ED8' : '#374151', textAlign:'left', fontFamily:"'DM Sans',sans-serif", transition:'background 0.1s' }}
+                              className="dark:hover:bg-midnight-700 dark:text-enterprise-silver"
+                            >
+                              <span style={{ color: isActive ? '#3B82F6' : '#9CA3AF', flexShrink:0 }}>{icons[view.iconType]}</span>
+                              <span style={{ flex:1 }}>{view.label}</span>
+                              {isActive && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>}
+                            </button>
+                          );
+                        })}
+                        <div style={{ margin:'6px 14px', borderTop:'1px solid #F3F4F6', paddingTop:8, paddingBottom:8, fontSize:11, color:'#9CA3AF', lineHeight:1.5, fontFamily:"'DM Sans',sans-serif" }} className="dark:border-midnight-600">
+                          Views control which columns are visible. Customize further with the Columns button.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Columns toggle panel */}
+                  <div ref={colsPanelRef} style={{ position:'relative' }}>
+                    <button
+                      onClick={() => { setShowColsPanel(v => !v); setShowViewsDropdown(false); }}
+                      style={{ display:'flex', alignItems:'center', gap:6, padding:'0 12px', height:36, borderRadius:8, border: showColsPanel ? '1px solid #1F2937' : '1px solid #E5E7EB', background: showColsPanel ? '#1F2937' : 'white', color: showColsPanel ? 'white' : '#374151', cursor:'pointer', fontSize:13, fontWeight:600, fontFamily:"'DM Sans',sans-serif", transition:'all 0.12s', whiteSpace:'nowrap', position:'relative' }}
+                      title="Show/hide individual columns"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
+                      <span className="hidden sm:inline">Columns</span>
+                      {hiddenCols.size > 0 && <span style={{ position:'absolute', top:-5, right:-5, background:'#3B82F6', color:'white', borderRadius:'50%', width:16, height:16, fontSize:10, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', lineHeight:1 }}>{hiddenCols.size}</span>}
+                    </button>
+                    {showColsPanel && (
+                      <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, zIndex:200, background:'white', border:'1px solid #E5E7EB', borderRadius:12, boxShadow:'0 8px 32px rgba(0,0,0,0.14)', width:260, maxHeight:400, overflowY:'auto' }} className="dark:bg-midnight-800 dark:border-midnight-600">
+                        <div style={{ padding:'10px 14px 6px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                          <span style={{ fontSize:10, fontWeight:800, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.08em', fontFamily:"'DM Sans',sans-serif" }}>Columns ({visibleColCount}/{ALL_COL_KEYS.length})</span>
+                          {hiddenCols.size > 0 && <button onClick={() => { setHiddenCols(new Set()); setActiveView('All Columns'); }} style={{ fontSize:11, color:'#3B82F6', background:'none', border:'none', cursor:'pointer', fontWeight:600, fontFamily:"'DM Sans',sans-serif" }}>Show all</button>}
+                        </div>
+                        {Object.entries(
+                          TABLE_COLUMNS.reduce((acc, col) => {
+                            const g = col.group;
+                            if (!acc[g]) acc[g] = [];
+                            acc[g].push(col);
+                            return acc;
+                          }, {} as Record<string, ColumnDefinition[]>)
+                        ).map(([grp, cols]) => (
+                          <div key={grp}>
+                            <div style={{ padding:'6px 14px 2px', fontSize:9, fontWeight:800, color: GRP_COLOR[grp]||'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.08em', fontFamily:"'DM Sans',sans-serif" }}>{grp}</div>
+                            {cols.map(col => {
+                              const colKey = col.key as string;
+                              const isVisible = !hiddenCols.has(colKey);
+                              const isLocked = LOCKED_PINS.has(colKey);
+                              return (
+                                <label key={colKey} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 14px', cursor: isLocked ? 'default' : 'pointer', opacity: isLocked ? 0.55 : 1, fontFamily:"'DM Sans',sans-serif" }} className="hover:bg-gray-50 dark:hover:bg-midnight-700">
+                                  <input type="checkbox" checked={isVisible} disabled={isLocked} onChange={() => !isLocked && toggleColVisibility(colKey)}
+                                    style={{ accentColor:'#3B82F6', width:13, height:13, flexShrink:0, cursor: isLocked ? 'default' : 'pointer' }}
+                                  />
+                                  <span style={{ fontSize:12, color: isVisible ? '#374151' : '#9CA3AF', fontWeight: isVisible ? 500 : 400 }} className="dark:text-enterprise-silver">{col.label}</span>
+                                  {isLocked && <svg width="9" height="9" viewBox="0 0 24 24" fill="#9CA3AF" style={{ marginLeft:'auto' }}><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2z"/></svg>}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        ))}
+                        <div style={{ height:6 }} />
+                      </div>
+                    )}
+                  </div>
+
                   <button
                     onClick={() => selectedIds.size > 0 ? handleBulkExport() : setShowExportModal(true)}
                     disabled={transactions.length === 0 || isExporting || bulkLoading}
-                    className="flex items-center justify-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white font-medium rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="btn-success"
                     title={selectedIds.size > 0 ? `Export ${selectedIds.size} selected` : "Export options"}
                   >
                     <Download className="h-4 w-4" />
-                    <span className="hidden sm:inline ml-2">
+                    <span className="hidden sm:inline">
                       {isExporting || bulkLoading ? 'Exporting...' : selectedIds.size > 0 ? `Export (${selectedIds.size})` : 'Export'}
                     </span>
                   </button>
                 </div>
               </div>
               
-              {/* Controls Row */}
-              <div className="flex flex-col md:flex-row gap-4">
-                {/* Search Input */}
-                <div className="flex-1 md:max-w-lg">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              {/* Compact Filter Bar */}
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                {/* Row 1: Search + Date quick pills + Status pills */}
+                <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+
+                  {/* Search */}
+                  <div style={{ position:'relative', minWidth:220, flex:'1 1 220px', maxWidth:360 }}>
+                    <Search style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', width:14, height:14, color:'#9CA3AF', pointerEvents:'none' }} />
                     <input
                       type="text"
-                      placeholder={loading ? "Searching..." : `Search transactions...${localSearchTerm ? ` (searching for "${localSearchTerm}")` : ''}`}
+                      placeholder="ID, plate, driver, product..."
                       value={localSearchTerm}
-                      onChange={(e) => {
-                        console.log('🔍 Search input changed:', e.target.value);
-                        setLocalSearchTerm(e.target.value);
-                      }}
+                      onChange={e => setLocalSearchTerm(e.target.value)}
                       disabled={loading}
-                      className={`w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-neon-cyan-glow focus:border-neon-cyan-glow text-sm transition-colors duration-200 ${
-                        loading ? 'bg-gray-100 cursor-not-allowed' : localSearchTerm ? 'bg-yellow-50 border-yellow-300' : 'bg-white'
-                      }`}
+                      style={{ width:'100%', paddingLeft:32, paddingRight: localSearchTerm ? 28 : 10, paddingTop:7, paddingBottom:7, border:'1px solid #E5E7EB', borderRadius:8, fontSize:13, fontFamily:"'DM Sans',sans-serif", background: localSearchTerm ? '#FFFBEB' : 'white', outline:'none', boxSizing:'border-box' }}
+                      className="dark:bg-midnight-700 dark:border-midnight-600 dark:text-enterprise-silver"
                     />
                     {localSearchTerm && (
-                      <button
-                        onClick={() => {
-                          console.log('🔍 Clearing search');
-                          setLocalSearchTerm('');
-                          onSearchChange('');
-                        }}
-                        disabled={loading}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-full hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors duration-200"
-                        title="Clear search"
-                      >
-                        <X className="h-3 w-3" />
+                      <button onClick={() => { setLocalSearchTerm(''); onSearchChange(''); }} style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', padding:2, color:'#9CA3AF', display:'flex', alignItems:'center' }}>
+                        <X style={{ width:12, height:12 }} />
                       </button>
                     )}
                   </div>
-                </div>
-                
-                {/* Search Results Indicator */}
-                {localSearchTerm.trim() && (
-                  <div className="flex-1 md:max-w-xs">
-                    <div className="bg-blue-50 dark:bg-neon-cyan-glow/20 border border-blue-200 dark:border-neon-cyan-glow/30 rounded-lg px-3 py-2 text-sm">
-                      <span className="font-medium text-blue-700 dark:text-neon-cyan-glow">
-                        Found {displayData.length} result{displayData.length !== 1 ? 's' : ''} for 
-                        <mark className="bg-yellow-200 dark:bg-yellow-900/40 text-yellow-900 dark:text-yellow-200 px-1 rounded mx-1">
-                          "{localSearchTerm}"
-                        </mark>
+
+                  {/* Date quick-filter pills */}
+                  <div style={{ display:'flex', alignItems:'center', gap:2, flexShrink:0 }}>
+                    {([
+                      ['today',     'Today'],
+                      ['yesterday', 'Yesterday'],
+                      ['week',      'This Week'],
+                      ['month',     'This Month'],
+                      ['custom',    'Custom'],
+                    ] as const).map(([key, label]) => {
+                      const isActive = dateQuick === key;
+                      return (
+                        <button key={key}
+                          onClick={() => {
+                            if (key === 'custom') {
+                              setDateQuick('custom');
+                              setShowDatePicker(true);
+                              return;
+                            }
+                            const now = new Date();
+                            const toStr = (d: Date) => d.toISOString().split('T')[0];
+                            let s: string, e: string;
+                            if (key === 'today') { s = e = toStr(now); }
+                            else if (key === 'yesterday') { const y = new Date(now); y.setDate(y.getDate()-1); s = e = toStr(y); }
+                            else if (key === 'week') { const mon = new Date(now); mon.setDate(now.getDate() - ((now.getDay()+6)%7)); s = toStr(mon); e = toStr(now); }
+                            else { s = toStr(new Date(now.getFullYear(), now.getMonth(), 1)); e = toStr(now); }
+                            if (isActive) {
+                              setDateQuick(null);
+                              setStartDateStr(null); setEndDateStr(null);
+                              onDateRangeChange?.(null, null);
+                            } else {
+                              setDateQuick(key);
+                              setStartDateStr(s); setEndDateStr(e);
+                              onDateRangeChange?.(new Date(s), new Date(e));
+                            }
+                          }}
+                          style={{ padding:'5px 11px', borderRadius:7, border: isActive ? '1.5px solid #1F2937' : '1px solid #E5E7EB', background: isActive ? '#1F2937' : 'white', color: isActive ? 'white' : '#374151', fontSize:12, fontWeight: isActive ? 600 : 500, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", transition:'all 0.1s', whiteSpace:'nowrap' }}
+                          className="dark:border-midnight-600 dark:bg-midnight-700 dark:text-enterprise-silver"
+                        >{label}</button>
+                      );
+                    })}
+                    {/* Show selected custom range */}
+                    {dateQuick === 'custom' && startDateStr && (
+                      <span style={{ fontSize:11, color:'#6B7280', paddingLeft:4, whiteSpace:'nowrap', fontFamily:"'DM Sans',sans-serif" }}>
+                        {startDateStr}{endDateStr && endDateStr !== startDateStr ? ` – ${endDateStr}` : ''}
                       </span>
-                    </div>
+                    )}
+                    {/* Clear date */}
+                    {dateQuick && (
+                      <button onClick={() => { setDateQuick(null); setStartDateStr(null); setEndDateStr(null); onDateRangeChange?.(null, null); }}
+                        style={{ marginLeft:2, padding:'4px 6px', borderRadius:6, border:'none', background:'none', cursor:'pointer', color:'#9CA3AF', display:'flex', alignItems:'center' }} title="Clear date filter">
+                        <X style={{ width:12, height:12 }} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Separator */}
+                  <div style={{ width:1, height:22, background:'#E5E7EB', flexShrink:0 }} className="dark:bg-midnight-600" />
+
+                  {/* Status pills */}
+                  <div style={{ display:'flex', alignItems:'center', gap:2, flexShrink:0 }}>
+                    {(['All', 'Valid', 'Cancelled', 'Void', 'Pending'] as const).map(s => {
+                      const isAll = s === 'All';
+                      const isActive = isAll ? !statusFilter : statusFilter === s;
+                      const cfg: Record<string, {dot:string; activeBg:string; activeColor:string}> = {
+                        Valid:     { dot:'#22C55E', activeBg:'#DCFCE7', activeColor:'#16A34A' },
+                        Cancelled: { dot:'#EF4444', activeBg:'#FEE2E2', activeColor:'#DC2626' },
+                        Void:      { dot:'#9CA3AF', activeBg:'#F3F4F6', activeColor:'#6B7280' },
+                        Pending:   { dot:'#F97316', activeBg:'#FEF3C7', activeColor:'#D97706' },
+                      };
+                      const c = cfg[s];
+                      return (
+                        <button key={s}
+                          onClick={() => onStatusFilterChange?.(isAll ? null : isActive ? null : s)}
+                          style={{
+                            padding:'5px 11px', borderRadius:999, fontSize:12, fontWeight: isActive ? 700 : 500, cursor:'pointer',
+                            fontFamily:"'DM Sans',sans-serif", display:'flex', alignItems:'center', gap:5, transition:'all 0.1s', whiteSpace:'nowrap',
+                            border: isActive ? (isAll ? '1.5px solid #1F2937' : `1.5px solid ${c.dot}66`) : '1px solid #E5E7EB',
+                            background: isActive ? (isAll ? '#1F2937' : c.activeBg) : 'white',
+                            color: isActive ? (isAll ? 'white' : c.activeColor) : '#374151',
+                          }}
+                          className="dark:border-midnight-600 dark:bg-midnight-700 dark:text-enterprise-silver"
+                        >
+                          {!isAll && <span style={{ width:6, height:6, borderRadius:'50%', background: isActive ? c.activeColor : '#D1D5DB', display:'inline-block', flexShrink:0 }} />}
+                          {s}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* More filters toggle */}
+                  {(filterOptions?.vehicles?.length || filterOptions?.products?.length) ? (
+                    <button
+                      onClick={() => setShowMoreFilters(v => !v)}
+                      style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 11px', borderRadius:8, border: (vehicleFilter||productFilter||showMoreFilters) ? '1.5px solid #1F2937' : '1px solid #E5E7EB', background: (vehicleFilter||productFilter||showMoreFilters) ? '#1F2937' : 'white', color: (vehicleFilter||productFilter||showMoreFilters) ? 'white' : '#374151', fontSize:12, fontWeight:500, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", flexShrink:0, transition:'all 0.1s' }}
+                      className="dark:border-midnight-600 dark:bg-midnight-700 dark:text-enterprise-silver"
+                    >
+                      <Filter style={{ width:12, height:12 }} />
+                      More
+                      {(vehicleFilter || productFilter) && <span style={{ background:'#3B82F6', color:'white', borderRadius:'50%', width:14, height:14, fontSize:9, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center' }}>{[vehicleFilter,productFilter].filter(Boolean).length}</span>}
+                      <ChevronDown style={{ width:11, height:11, opacity:0.6, transform: showMoreFilters ? 'rotate(180deg)' : 'none', transition:'transform 0.15s' }} />
+                    </button>
+                  ) : null}
+
+                  {/* Results count / active filter chip */}
+                  {localSearchTerm.trim() && (
+                    <span style={{ fontSize:12, color:'#6B7280', whiteSpace:'nowrap', fontFamily:"'DM Sans',sans-serif" }}>
+                      {displayData.length} result{displayData.length !== 1 ? 's' : ''} for <strong style={{ color:'#374151' }}>"{localSearchTerm}"</strong>
+                    </span>
+                  )}
+                </div>
+
+                {/* Row 2: More filters (vehicle + product) */}
+                {showMoreFilters && (
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:8, alignItems:'center', padding:'10px 14px', background:'#F9FAFB', borderRadius:10, border:'1px solid #E5E7EB' }} className="dark:bg-midnight-800 dark:border-midnight-600">
+                    {/* Vehicle Type */}
+                    {filterOptions?.vehicles?.length ? (
+                      <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                        <span style={{ fontSize:10, fontWeight:700, color:'#8B5CF6', textTransform:'uppercase', letterSpacing:'0.07em', fontFamily:"'DM Sans',sans-serif" }}>Vehicle Type</span>
+                        <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+                          <button onClick={() => onVehicleFilterChange?.(null)} style={{ padding:'4px 10px', borderRadius:999, fontSize:12, border: !vehicleFilter ? '1.5px solid #7C3AED' : '1px solid #DDD8FE', background: !vehicleFilter ? '#EDE9FE' : 'white', color: !vehicleFilter ? '#6D28D9' : '#374151', cursor:'pointer', fontFamily:"'DM Sans',sans-serif", fontWeight: !vehicleFilter ? 700 : 400 }}>All</button>
+                          {filterOptions.vehicles.map(v => (
+                            <button key={v} onClick={() => onVehicleFilterChange?.(vehicleFilter === v ? null : v)}
+                              style={{ padding:'4px 10px', borderRadius:999, fontSize:12, border: vehicleFilter === v ? '1.5px solid #7C3AED' : '1px solid #E5E7EB', background: vehicleFilter === v ? '#EDE9FE' : 'white', color: vehicleFilter === v ? '#6D28D9' : '#374151', cursor:'pointer', fontFamily:"'DM Sans',sans-serif", fontWeight: vehicleFilter === v ? 700 : 400, whiteSpace:'nowrap' }}>{v}</button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* Product */}
+                    {filterOptions?.products?.length ? (
+                      <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                        <span style={{ fontSize:10, fontWeight:700, color:'#22C55E', textTransform:'uppercase', letterSpacing:'0.07em', fontFamily:"'DM Sans',sans-serif" }}>Product</span>
+                        <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+                          <button onClick={() => onProductFilterChange?.(null)} style={{ padding:'4px 10px', borderRadius:999, fontSize:12, border: !productFilter ? '1.5px solid #16A34A' : '1px solid #DCFCE7', background: !productFilter ? '#DCFCE7' : 'white', color: !productFilter ? '#15803D' : '#374151', cursor:'pointer', fontFamily:"'DM Sans',sans-serif", fontWeight: !productFilter ? 700 : 400 }}>All</button>
+                          {filterOptions.products.map(p => (
+                            <button key={p} onClick={() => onProductFilterChange?.(productFilter === p ? null : p)}
+                              style={{ padding:'4px 10px', borderRadius:999, fontSize:12, border: productFilter === p ? '1.5px solid #16A34A' : '1px solid #E5E7EB', background: productFilter === p ? '#DCFCE7' : 'white', color: productFilter === p ? '#15803D' : '#374151', cursor:'pointer', fontFamily:"'DM Sans',sans-serif", fontWeight: productFilter === p ? 700 : 400, whiteSpace:'nowrap' }}>{p}</button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* Clear all */}
+                    {(vehicleFilter || productFilter) && (
+                      <button onClick={() => { onVehicleFilterChange?.(null); onProductFilterChange?.(null); }}
+                        style={{ marginLeft:'auto', padding:'5px 10px', borderRadius:7, border:'1px solid #FCA5A5', background:'white', color:'#EF4444', fontSize:12, cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>
+                        Clear
+                      </button>
+                    )}
                   </div>
                 )}
-                
-                {/* Date Range Picker */}
-                <div className="flex-shrink-0">
-                  <button
-                    onClick={() => setShowDatePicker(!showDatePicker)}
-                    disabled={loading}
-                    className="flex items-center justify-center px-4 py-2.5 bg-white dark:bg-midnight-700 border border-gray-300 dark:border-midnight-600 rounded-lg hover:bg-gray-50 dark:hover:bg-midnight-600 text-gray-700 dark:text-enterprise-silver text-sm font-medium transition-colors duration-200"
-                  >
-                    <Calendar className="h-4 w-4 mr-2" />
-                    <span className="whitespace-nowrap">
-                      {startDateStr && endDateStr
-                        ? `${formatDateFromString(startDateStr)} - ${formatDateFromString(endDateStr)}`
-                        : startDateStr
-                        ? formatDateFromString(startDateStr)
-                        : 'Select date range'}
-                    </span>
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -1517,7 +1946,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                 <div className="flex justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
                   <button
                     onClick={() => setShowDatePicker(false)}
-                    className="px-6 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                    className="btn-ghost"
                   >
                     Cancel
                   </button>
@@ -1525,7 +1954,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                     onClick={() => {
                       setShowDatePicker(false);
                     }}
-                    className="px-6 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    className="btn-primary"
                   >
                     Apply Date Range
                   </button>
@@ -1564,7 +1993,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                 <button
                   onClick={() => setShowBulkStatusModal(true)}
                   disabled={bulkLoading}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-neon-cyan-glow dark:hover:bg-neon-cyan-bright text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  className="btn-primary"
                   title="Update status for selected transactions"
                 >
                   <ArrowUpDown className="h-4 w-4" />
@@ -1574,7 +2003,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                 <button
                   onClick={handleBulkDelete}
                   disabled={bulkLoading}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  className="btn-danger"
                   title="Move selected transactions to trash"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -1606,7 +2035,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowBulkStatusModal(false)}
-                  className="flex-1 px-4 py-2 bg-gray-200 dark:bg-midnight-700 hover:bg-gray-300 dark:hover:bg-midnight-600 text-gray-800 dark:text-enterprise-silver rounded-lg font-medium transition-colors"
+                  className="btn-ghost flex-1"
                   disabled={bulkLoading}
                 >
                   Cancel
@@ -1614,7 +2043,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                 <button
                   onClick={handleBulkStatusUpdate}
                   disabled={bulkLoading}
-                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-neon-cyan-glow dark:hover:bg-neon-cyan-bright text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="btn-primary flex-1"
                 >
                   {bulkLoading ? 'Updating...' : 'Update'}
                 </button>
@@ -1638,27 +2067,140 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
               </p>
             </div>
           ) : displayData.length === 0 ? (
-            <div className="p-12 text-center">
-              <div className="text-gray-400 dark:text-enterprise-muted mb-6">
-                <Search className="h-12 w-12 mx-auto" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-enterprise-silver mb-3">
-                {localSearchTerm ? 'No matching transactions found' : 'No transactions found'}
+            <div className="p-16 flex flex-col items-center">
+              {/* Enhancement 4: Smart Empty State */}
+              <svg width="80" height="80" viewBox="0 0 80 80" fill="none" className="mb-6">
+                <rect x="10" y="16" width="60" height="52" rx="6" fill="#F3F4F6" />
+                <rect x="18" y="28" width="44" height="4" rx="2" fill="#D1D5DB" />
+                <rect x="18" y="38" width="32" height="4" rx="2" fill="#D1D5DB" />
+                <rect x="18" y="48" width="38" height="4" rx="2" fill="#D1D5DB" />
+                <circle cx="55" cy="55" r="16" fill="white" stroke="#3B82F6" strokeWidth="2" />
+                <line x1="49" y1="49" x2="61" y2="61" stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="round" />
+                <line x1="61" y1="49" x2="49" y2="61" stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="round" />
+              </svg>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-enterprise-silver mb-2">
+                {localSearchTerm && statusFilter && statusFilter !== 'All'
+                  ? `No ${statusFilter} results for "${localSearchTerm}"`
+                  : localSearchTerm
+                  ? `No results for "${localSearchTerm}"`
+                  : statusFilter && statusFilter !== 'All'
+                  ? `No ${statusFilter} transactions`
+                  : 'No transactions found'}
               </h3>
-              <p className="text-gray-600 dark:text-enterprise-muted">
-                {localSearchTerm ? 'Try adjusting your search terms or filters.' : 'Start by creating a new truck accession ticket.'}
+              <p className="text-sm text-gray-500 dark:text-enterprise-muted mb-8 text-center max-w-sm">
+                {localSearchTerm && statusFilter && statusFilter !== 'All'
+                  ? 'Try clearing the status filter or changing your search term.'
+                  : localSearchTerm
+                  ? 'Try a different ID, plate number, or driver name.'
+                  : statusFilter && statusFilter !== 'All'
+                  ? `There are no ${statusFilter} transactions for the selected date range.`
+                  : 'Try adjusting the date range or filters to find transactions.'}
               </p>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => { setLocalSearchTerm(''); onSearchChange(''); onStatusFilterChange?.(''); }}
+                  className="px-4 py-2 text-sm font-medium text-blue-600 dark:text-neon-cyan-glow border border-blue-300 dark:border-neon-cyan-glow/40 rounded-lg hover:bg-blue-50 dark:hover:bg-neon-cyan-glow/10 transition-colors"
+                >
+                  Clear filters
+                </button>
+                <button
+                  onClick={() => { setLocalSearchTerm(''); onSearchChange(''); onStatusFilterChange?.(''); onDateRangeChange?.(null, null); }}
+                  className="px-4 py-2 text-sm font-medium text-gray-500 dark:text-enterprise-muted rounded-lg hover:bg-gray-100 dark:hover:bg-midnight-700 transition-colors"
+                >
+                  Show all
+                </button>
+              </div>
             </div>
           ) : (
             <div className="overflow-x-auto overflow-y-visible">
-              <table className="min-w-[2000px] w-full">
-                <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-midnight-800 dark:to-midnight-800 border-b border-gray-200 dark:border-midnight-700">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-enterprise-muted uppercase tracking-wider w-12">
+              {highlightMode && (() => {
+                const hlCount = displayData.filter(t =>
+                  (highlightMode === 'void'           && t.status?.toLowerCase() === 'void') ||
+                  (highlightMode === 'cancelled'      && t.status?.toLowerCase() === 'cancelled') ||
+                  (highlightMode === 'missing-plates' && !t.plate?.trim())
+                ).length;
+                const hlLabel =
+                  highlightMode === 'void'           ? 'void transactions' :
+                  highlightMode === 'cancelled'      ? 'cancelled transactions' :
+                  highlightMode === 'missing-plates' ? 'trips missing a plate number' :
+                  'flagged rows';
+                const hlColor =
+                  highlightMode === 'cancelled'      ? '#EF4444' :
+                  highlightMode === 'missing-plates' ? '#F97316' : '#F59E0B';
+                return (
+                  <div style={{
+                    display:'flex', alignItems:'center', gap:10,
+                    padding:'8px 16px',
+                    background:`color-mix(in srgb, ${hlColor} 10%, var(--bg-card))`,
+                    borderBottom:`1px solid color-mix(in srgb, ${hlColor} 30%, var(--border))`,
+                    fontSize:13,
+                  }}>
+                    <span style={{ width:8, height:8, borderRadius:'50%', background:hlColor, flexShrink:0, display:'inline-block' }} />
+                    <span style={{ color:'var(--text-secondary)' }}>
+                      Highlighting{' '}
+                      <strong style={{ color:hlColor }}>{hlCount}</strong>
+                      {' '}{hlLabel} on this page. Click any highlighted row to inspect.
+                    </span>
+                  </div>
+                );
+              })()}
+              <table style={{ borderCollapse:'collapse', tableLayout:'fixed', width:'max-content', minWidth:'100%', fontFamily:"'DM Sans',sans-serif" }}>
+                <thead>
+                  {/* ROW 1: Group header row */}
+                  <tr style={{ height:24 }}>
+                    <th
+                      colSpan={2}
+                      className="tx-frozen-glass"
+                      style={{ position:'sticky', left:0, top:0, zIndex:30, background:frzBgHd, backdropFilter:frzBlur, WebkitBackdropFilter:frzBlur, borderRight:`1px solid ${frzBrd}`, borderBottom:`1px solid ${frzBrd}`, width:CB_W+ACT_W, minWidth:CB_W+ACT_W, boxSizing:'border-box' }}
+                    />
+                    {frozenGroupSpans.map((gs, i) => {
+                      const firstFrz = frozenCols.find(c => c.group === gs.group);
+                      return (
+                        <th
+                          key={'fg'+i}
+                          colSpan={gs.span}
+                          className="tx-grp-th tx-frozen-glass"
+                          style={{
+                            background: GRP_COLOR[gs.group]+'22',
+                            backdropFilter: frzBlur,
+                            WebkitBackdropFilter: frzBlur,
+                            color: GRP_COLOR[gs.group],
+                            borderColor: frzBrd,
+                            position: 'sticky',
+                            left: firstFrz ? frozenLeft[firstFrz.key as string] : undefined,
+                            top: 0,
+                            zIndex: 30,
+                          }}
+                        >{gs.group}</th>
+                      );
+                    })}
+                    {scrollGroupSpans.map((gs, i) => (
+                      <th
+                        key={'sg'+i}
+                        colSpan={gs.span}
+                        className="tx-grp-th"
+                        style={{
+                          background: GRP_COLOR[gs.group]+'18',
+                          color: GRP_COLOR[gs.group],
+                          borderColor: 'var(--border)',
+                          position: 'sticky',
+                          top: 0,
+                          zIndex: 10,
+                        }}
+                      >{gs.group}</th>
+                    ))}
+                  </tr>
+                  {/* ROW 2: Column header row */}
+                  <tr style={{ height:36 }}>
+                    {/* Checkbox header */}
+                    <th
+                      className="tx-col-th tx-frozen-glass"
+                      style={{ width:CB_W, minWidth:CB_W, left:0, top:'24px', zIndex:28, background:frzBgHd, backdropFilter:frzBlur, WebkitBackdropFilter:frzBlur, borderColor:frzBrd, borderTop:`2px solid ${GRP_COLOR['Identity']}`, position:'sticky', textAlign:'center', padding:'0 0' }}
+                    >
                       <button
                         onClick={toggleSelectAll}
                         className="inline-flex items-center justify-center p-1 rounded hover:bg-gray-200 dark:hover:bg-midnight-700 transition-colors"
-                        title={selectedIds.size === transactions.length ? "Deselect all" : "Select all"}
+                        title={selectedIds.size === transactions.length && transactions.length > 0 ? "Deselect all" : "Select all"}
                       >
                         {selectedIds.size === transactions.length && transactions.length > 0 ? (
                           <CheckSquare className="h-4 w-4 text-blue-600 dark:text-neon-cyan-glow" />
@@ -1667,92 +2209,348 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                         )}
                       </button>
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-enterprise-muted uppercase tracking-wider">
-                      Actions
+                    {/* Actions header */}
+                    <th
+                      className="tx-col-th tx-frozen-glass"
+                      style={{ width:ACT_W, minWidth:ACT_W, left:CB_W, top:'24px', zIndex:28, background:frzBgHd, backdropFilter:frzBlur, WebkitBackdropFilter:frzBlur, borderColor:frzBrd, borderTop:`2px solid ${GRP_COLOR['Identity']}`, position:'sticky' }}
+                    >
+                      ACTIONS
                     </th>
-                    {MEMOIZED_TABLE_COLUMNS.map((column: ColumnDefinition, index: number) => (
-                      <th
-                        key={column.key as string}
-                        className={`px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-enterprise-muted uppercase tracking-wider ${
-                          column.className || ''
-                        }`}
-                      >
-                        {headerCells[index]}
-                      </th>
-                    ))}
+                    {/* Column headers */}
+                    {orderedCols.map((col: ColumnDefinition) => {
+                      const colKey = col.key as string;
+                      const isFrz = pinnedCols.has(colKey);
+                      const isLast = colKey === lastFrozenKey;
+                      const isPinned = pinnedCols.has(colKey);
+                      const isLocked = LOCKED_PINS.has(colKey);
+                      const gc = GRP_COLOR[col.group] || '#9CA3AF';
+                      const cw = colWidths[colKey] ?? col.w;
+                      return (
+                        <th
+                          key={colKey}
+                          data-col={colKey}
+                          className="tx-col-th select-none group"
+                          style={{
+                            width: cw,
+                            minWidth: cw,
+                            top: '24px',
+                            zIndex: isFrz ? 28 : 12,
+                            background: frzBgHd,
+                            backdropFilter: frzBlur,
+                            WebkitBackdropFilter: frzBlur,
+                            borderColor: isFrz ? frzBrd : 'var(--border)',
+                            color: gc,
+                            left: isFrz ? frozenLeft[colKey] : undefined,
+                            textAlign: (col.align || 'left') as React.CSSProperties['textAlign'],
+                            borderTop: `2px solid ${gc}`,
+                            position: 'sticky',
+                            boxShadow: isLast ? frzShd : undefined,
+                          }}
+                          onClick={() => onSortChange(colKey)}
+                        >
+                          <div style={{ display:'flex', alignItems:'center', gap:4, paddingRight:8, position:'relative' }}>
+                            <span style={{ flex:1 }}>{col.label}</span>
+                            {/* Pin/lock button */}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); togglePin(colKey); }}
+                              title={isLocked ? 'Default pinned column' : isPinned ? 'Unpin column' : 'Pin column'}
+                              className={`transition-opacity p-0.5 rounded hover:bg-gray-200 dark:hover:bg-midnight-600 flex-shrink-0 ${isPinned ? 'opacity-100 text-blue-500 dark:text-neon-cyan-glow' : 'opacity-0 group-hover:opacity-60 text-gray-400'}`}
+                            >
+                              {isLocked
+                                ? <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+                                : <svg width="10" height="10" viewBox="0 0 24 24" fill={isPinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M12 2l2.4 6H20l-5 3.6 1.9 6L12 14l-4.9 3.6 1.9-6L4 8h5.6z"/></svg>
+                              }
+                            </button>
+                            {/* Sort icon */}
+                            <span className={`tx-sort-ic${sortBy === colKey ? ' on' : ''}`} style={{ color: gc }}>
+                              {sortBy === colKey ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+                            </span>
+                            {/* Resize handle */}
+                            <div
+                              style={{ position:'absolute', right:0, top:0, width:5, height:'100%', cursor:'col-resize', zIndex:1 }}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const thEl = e.currentTarget.closest('th') as HTMLElement;
+                                resizingRef.current = { key: colKey, startX: e.clientX, startW: thEl.offsetWidth };
+                                document.body.style.cursor = 'col-resize';
+                                document.body.style.userSelect = 'none';
+                              }}
+                            />
+                          </div>
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-midnight-700">
-                  {displayData.map((transaction: Transaction, index: number) => {
-                    const isHighlighted = !!highlightTransId && transaction.id === highlightTransId;
-                    return (
-                    <tr 
-                      key={transaction.id}
-                      ref={isHighlighted ? highlightRowRef : undefined}
-                      className={`hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 dark:hover:from-midnight-800/50 dark:hover:to-midnight-800/50 transition-all duration-200 ${
-                        isHighlighted
-                          ? 'bg-cyan-500/10 dark:bg-cyan-500/10 ring-1 ring-inset ring-cyan-400/40 shadow-[0_0_0_1px_rgba(34,211,238,0.25)] animate-pulse-once'
-                          : index % 2 === 0 ? 'bg-white dark:bg-midnight-800' : 'bg-gray-50/50 dark:bg-midnight-800'
-                      }`}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap text-left text-sm font-medium">
-                        <button
-                          onClick={() => toggleSelectId(transaction.id as number)}
-                          className="inline-flex items-center justify-center p-1 rounded hover:bg-gray-200 dark:hover:bg-midnight-700 transition-colors"
-                          title={selectedIds.has(transaction.id as number) ? "Deselect" : "Select"}
-                        >
-                          {selectedIds.has(transaction.id as number) ? (
-                            <CheckSquare className="h-4 w-4 text-blue-600 dark:text-neon-cyan-glow" />
-                          ) : (
-                            <Square className="h-4 w-4 text-gray-400 dark:text-enterprise-muted" />
-                          )}
-                        </button>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-left text-sm font-medium">
-                        <div className="flex items-center justify-start space-x-2">
-                          <button
-                            onClick={() => exportSingleRow(transaction)}
-                            disabled={isExporting}
-                            className="inline-flex items-center justify-center p-2 bg-green-50 hover:bg-green-100 text-green-600 rounded-lg transition-all duration-200 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Export Transaction"
-                          >
-                            <Download className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => openDetails(transaction.id as number, 'view')}
-                            className="inline-flex items-center justify-center p-2 bg-blue-50 dark:bg-neon-cyan-glow/20 hover:bg-blue-100 dark:hover:bg-neon-cyan-glow/30 text-blue-600 dark:text-neon-cyan-glow rounded-lg transition-all duration-200 hover:scale-110"
-                            title="View Details"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => openDetails(transaction.id as number, 'edit')}
-                            className="inline-flex items-center justify-center p-2 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-lg transition-all duration-200 hover:scale-110"
-                            title="Edit Transaction"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTransaction(transaction.id as number)}
-                            disabled={deleteLoading}
-                            className="inline-flex items-center justify-center p-2 bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg transition-all duration-200 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Move to Trash"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                <tbody>
+                  {displayData.length === 0 && (
+                    <tr>
+                      <td colSpan={orderedCols.length + 2} style={{ padding:'48px 24px', textAlign:'center', background:'white' }} className="dark:bg-midnight-800">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style={{ margin:'0 auto 16px' }}>
+                          <rect x="8" y="12" width="48" height="40" rx="6" fill="#F1F5F9" stroke="#CBD5E1" strokeWidth="2"/>
+                          <rect x="14" y="22" width="14" height="3" rx="1.5" fill="#94A3B8"/>
+                          <rect x="14" y="29" width="22" height="3" rx="1.5" fill="#CBD5E1"/>
+                          <rect x="14" y="36" width="18" height="3" rx="1.5" fill="#CBD5E1"/>
+                          <circle cx="44" cy="44" r="12" fill="#E2E8F0" stroke="#94A3B8" strokeWidth="2"/>
+                          <line x1="39" y1="44" x2="49" y2="44" stroke="#94A3B8" strokeWidth="2.5" strokeLinecap="round"/>
+                        </svg>
+                        <div style={{ fontSize:16, fontWeight:700, color:'#374151', marginBottom:6 }} className="dark:text-enterprise-silver">
+                          {(localSearchTerm || activeFilters?.status || activeFilters?.dateRange) ? 'No results match your filters' : 'No transactions found'}
                         </div>
+                        <div style={{ fontSize:13, color:'#9CA3AF', marginBottom:20 }}>
+                          {(localSearchTerm || activeFilters?.status || activeFilters?.dateRange)
+                            ? 'Try adjusting your search terms or clearing the active filters.'
+                            : 'Transactions will appear here once data is available.'}
+                        </div>
+                        {(localSearchTerm || activeFilters?.status || activeFilters?.dateRange) && (
+                          <div style={{ display:'flex', gap:8, justifyContent:'center' }}>
+                            <button onClick={() => setLocalSearchTerm('')} style={{ padding:'7px 16px', borderRadius:8, border:'1px solid #E5E7EB', background:'white', fontSize:13, cursor:'pointer', color:'#374151' }}>
+                              Clear search
+                            </button>
+                          </div>
+                        )}
                       </td>
-                      {MEMOIZED_TABLE_COLUMNS.map((column: ColumnDefinition) => (
-                        <td
-                          key={column.key as string}
-                          className={`px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-enterprise-silver ${
-                            column.className || ''
-                          }`}
-                        >
-                          {renderCellContent(transaction, column, localSearchTerm)}
-                        </td>
-                      ))}
                     </tr>
+                  )}
+                  {displayData.map((transaction: Transaction, index: number) => {
+                    const isSel = selectedIds.has(transaction.id as number);
+                    const isExp = expandedRow === transaction.id;
+                    const isHighlighted = !!highlightTransId && transaction.id === highlightTransId;
+                    const isAlertHighlight =
+                      (highlightMode === 'void'           && transaction.status?.toLowerCase() === 'void') ||
+                      (highlightMode === 'cancelled'      && transaction.status?.toLowerCase() === 'cancelled') ||
+                      (highlightMode === 'missing-plates' && !transaction.plate?.trim());
+                    const alertBg =
+                      highlightMode === 'cancelled'      ? 'rgba(239,68,68,0.09)'  :
+                      highlightMode === 'missing-plates' ? 'rgba(249,115,22,0.09)' :
+                                                           'rgba(245,158,11,0.09)';
+                    const alertRing =
+                      highlightMode === 'cancelled'      ? 'rgba(239,68,68,0.35)'  :
+                      highlightMode === 'missing-plates' ? 'rgba(249,115,22,0.35)' :
+                                                           'rgba(245,158,11,0.35)';
+                    const rowBg = isHighlighted
+                      ? 'rgba(34,211,238,0.08)'
+                      : isAlertHighlight
+                      ? alertBg
+                      : isSel
+                      ? frzBgSel
+                      : index % 2 === 0 ? undefined : 'rgba(0,0,0,0.018)';
+                    return (
+                      <React.Fragment key={transaction.id}>
+                        <tr
+                          ref={isHighlighted ? highlightRowRef : undefined}
+                          className={`transition-all duration-150${isExp ? ' tx-tr-expand' : ''}${isHighlighted ? ' animate-pulse-once' : ''}`}
+                          style={{
+                            height: ROW_H,
+                            cursor: 'pointer',
+                            background: rowBg,
+                            boxShadow: isAlertHighlight && !isHighlighted ? `inset 3px 0 0 ${alertRing}, inset 0 0 0 1px ${alertRing}` : undefined,
+                          }}
+                          onClick={() => setExpandedRow(isExp ? null : (transaction.id as number))}
+                          onMouseEnter={(e) => {
+                            if (!editingStatus) {
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                              setHoverY(rect.top + rect.height / 2);
+                              setHoverRow(transaction);
+                            }
+                          }}
+                          onMouseLeave={() => setHoverRow(null)}
+                        >
+                          {/* Checkbox cell */}
+                          <td
+                            className="tx-td-cell tx-frozen-glass"
+                            style={{ position:'sticky', left:0, zIndex:5, width:CB_W, minWidth:CB_W, background:isSel?frzBgSel:frzBg, backdropFilter:frzBlur, WebkitBackdropFilter:frzBlur, borderColor:frzBrd, textAlign:'center', padding:'0 0' }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              onClick={() => toggleSelectId(transaction.id as number)}
+                              className="inline-flex items-center justify-center p-1 rounded hover:bg-gray-200 dark:hover:bg-midnight-700 transition-colors"
+                              title={isSel ? "Deselect" : "Select"}
+                            >
+                              {isSel ? (
+                                <CheckSquare className="h-4 w-4 text-blue-600 dark:text-neon-cyan-glow" />
+                              ) : (
+                                <Square className="h-4 w-4 text-gray-400 dark:text-enterprise-muted" />
+                              )}
+                            </button>
+                          </td>
+                          {/* Actions cell */}
+                          <td
+                            className="tx-td-cell tx-frozen-glass"
+                            style={{ position:'sticky', left:CB_W, zIndex:5, width:ACT_W, minWidth:ACT_W, background:isSel?frzBgSel:frzBg, backdropFilter:frzBlur, WebkitBackdropFilter:frzBlur, borderColor:frzBrd, padding:'0 6px' }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                              <button
+                                onClick={() => exportSingleRow(transaction)}
+                                disabled={isExporting}
+                                className="inline-flex items-center justify-center p-2 bg-green-50 hover:bg-green-100 text-green-600 rounded-lg transition-all duration-200 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Export Transaction"
+                              >
+                                <Download className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => openDetails(transaction.id as number, 'view')}
+                                className="inline-flex items-center justify-center p-2 bg-blue-50 dark:bg-neon-cyan-glow/20 hover:bg-blue-100 dark:hover:bg-neon-cyan-glow/30 text-blue-600 dark:text-neon-cyan-glow rounded-lg transition-all duration-200 hover:scale-110"
+                                title="View Details"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => openDetails(transaction.id as number, 'edit')}
+                                className="inline-flex items-center justify-center p-2 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-lg transition-all duration-200 hover:scale-110"
+                                title="Edit Transaction"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteTransaction(transaction.id as number)}
+                                disabled={deleteLoading}
+                                className="inline-flex items-center justify-center p-2 bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg transition-all duration-200 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Move to Trash"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </td>
+                          {/* Data cells */}
+                          {orderedCols.map((col: ColumnDefinition) => {
+                            const colKey = col.key as string;
+                            const isFrz = pinnedCols.has(colKey);
+                            const isLast = colKey === lastFrozenKey;
+                            const cw = colWidths[colKey] ?? col.w;
+                            const STATUS_OPTIONS = ['Valid', 'Pending', 'Void', 'Cancelled'] as const;
+                            const tid = transaction.id as number;
+
+                            if (colKey === 'status') {
+                              const st = transaction.status || 'Unknown';
+                              const sc = STATUS_CFG[st] || STATUS_CFG['Void'];
+                              return (
+                                <td
+                                  key={colKey}
+                                  className={`tx-td-cell${isFrz ? ' tx-frozen-glass' : ''}`}
+                                  style={{
+                                    width: cw,
+                                    height: ROW_H,
+                                    borderColor: isFrz ? frzBrd : 'var(--border)',
+                                    position: isFrz ? 'sticky' : 'relative',
+                                    zIndex: isFrz ? 5 : undefined,
+                                    left: isFrz ? frozenLeft[colKey] : undefined,
+                                    background: isFrz ? (isSel?frzBgSel:frzBg) : undefined,
+                                    backdropFilter: isFrz ? frzBlur : undefined,
+                                    WebkitBackdropFilter: isFrz ? frzBlur : undefined,
+                                    boxShadow: isLast ? frzShd : undefined,
+                                  }}
+                                >
+                                  <button
+                                    data-status-popover="true"
+                                    onClick={(e) => { e.stopPropagation(); setEditingStatus(editingStatus === tid ? null : tid); }}
+                                    style={{ background: sc.bg, color: sc.color, border: `1px solid ${sc.dot}40`, borderRadius: 999, padding: '2px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display:'inline-flex', alignItems:'center', gap: 5 }}
+                                  >
+                                    <span style={{ width:6, height:6, borderRadius:'50%', background:sc.dot, display:'inline-block', flexShrink:0 }} />
+                                    {st}
+                                  </button>
+                                  {editingStatus === tid && (
+                                    <div
+                                      data-status-popover="true"
+                                      style={{ position:'absolute', top:'100%', left:0, zIndex:50, background:'white', border:'1px solid #E5E7EB', borderRadius:10, boxShadow:'0 6px 24px rgba(0,0,0,0.16)', width:160, padding:'8px 0', marginTop:4 }}
+                                      className="dark:bg-midnight-800 dark:border-midnight-600"
+                                    >
+                                      <div style={{ fontSize:10, fontWeight:600, color:'#9CA3AF', padding:'4px 12px 8px', textTransform:'uppercase', letterSpacing:'0.06em' }}>Change Status</div>
+                                      {STATUS_OPTIONS.map(opt => {
+                                        const os = STATUS_CFG[opt] || STATUS_CFG['Void'];
+                                        return (
+                                          <button
+                                            key={opt}
+                                            data-status-popover="true"
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              if (opt !== st && onUpdate) await onUpdate(tid, { status: opt });
+                                              setEditingStatus(null);
+                                            }}
+                                            style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'7px 12px', background: opt === st ? os.bg : 'transparent', border:'none', cursor:'pointer', fontSize:13, color: os.color, fontWeight: opt === st ? 600 : 400, textAlign:'left' }}
+                                          >
+                                            <span style={{ width:8, height:8, borderRadius:'50%', background:os.dot, display:'inline-block', flexShrink:0 }} />
+                                            {opt}
+                                            {opt === st && <span style={{ marginLeft:'auto', fontSize:11 }}>✓</span>}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </td>
+                              );
+                            }
+
+                            return (
+                              <td
+                                key={colKey}
+                                className={`tx-td-cell${isFrz ? ' tx-frozen-glass' : ''}`}
+                                style={{
+                                  width: cw,
+                                  height: ROW_H,
+                                  borderColor: isFrz ? frzBrd : 'var(--border)',
+                                  textAlign: (col.align || 'left') as React.CSSProperties['textAlign'],
+                                  position: isFrz ? 'sticky' : undefined,
+                                  zIndex: isFrz ? 5 : undefined,
+                                  left: isFrz ? frozenLeft[colKey] : undefined,
+                                  background: isFrz ? (isSel?frzBgSel:frzBg) : undefined,
+                                  backdropFilter: isFrz ? frzBlur : undefined,
+                                  WebkitBackdropFilter: isFrz ? frzBlur : undefined,
+                                  boxShadow: isLast ? frzShd : undefined,
+                                }}
+                              >
+                                {renderCell(transaction, col)}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                        {/* Expandable row detail panel */}
+                        {isExp && (
+                          <tr className="tx-tr-expand">
+                            <td
+                              colSpan={orderedCols.length + 2}
+                              style={{ padding:0, background:'rgba(59,130,246,0.04)', borderBottom:'2px solid rgba(59,130,246,0.26)' }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {/* Tab bar */}
+                              <div style={{ display:'flex', gap:1, padding:'10px 16px 0 64px', borderBottom:'1px solid var(--border)' }}>
+                                {allGroups.map(grp => (
+                                  <button
+                                    key={grp}
+                                    onClick={(e) => { e.stopPropagation(); setExpandedTab(grp); }}
+                                    style={{
+                                      padding:'5px 12px',
+                                      borderRadius:'7px 7px 0 0',
+                                      fontSize:11,
+                                      fontWeight:600,
+                                      cursor:'pointer',
+                                      border: expandedTab === grp ? `1px solid ${GRP_COLOR[grp]}55` : '1px solid transparent',
+                                      borderBottom:'none',
+                                      background: expandedTab === grp ? 'white' : 'transparent',
+                                      color: expandedTab === grp ? GRP_COLOR[grp] : '#9CA3AF',
+                                      marginBottom:-1,
+                                      fontFamily:"'DM Sans',sans-serif",
+                                    }}
+                                  >{grp}</button>
+                                ))}
+                              </div>
+                              {/* Tab content */}
+                              <div style={{ padding:'16px 20px 18px 68px' }}>
+                                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(210px,1fr))', gap:'14px 28px' }}>
+                                  {TABLE_COLUMNS.filter(c => c.group === expandedTab).map(col => (
+                                    <div key={col.key as string}>
+                                      <div style={{ fontSize:9, fontWeight:700, color:GRP_COLOR[col.group]||'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:4 }}>{col.label}</div>
+                                      <div>{renderCell(transaction, col)}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     );
                   })}
                 </tbody>
@@ -1760,6 +2558,61 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
             </div>
           )}
         </div>
+
+        {/* Enhancement 5: Row Hover Preview Panel */}
+        {hoverRow && !editingStatus && (
+          <div
+            style={{
+              position: 'fixed',
+              right: 16,
+              top: Math.max(80, hoverY - 120),
+              width: 220,
+              zIndex: 500,
+              borderRadius: 12,
+              padding: 16,
+              animation: 'slideInHoverPanel 0.18s ease both',
+              pointerEvents: 'none',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.14)',
+            }}
+            className="bg-white dark:bg-midnight-800 border border-gray-200 dark:border-midnight-600"
+          >
+            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:15, fontWeight:700, color:'#3B82F6', marginBottom:8 }}>
+              #{hoverRow.id}
+            </div>
+            <div style={{ borderBottom:'1px solid #F3F4F6', marginBottom:8 }} className="dark:border-midnight-700" />
+            {([
+              { label:'Net Weight', value: formatWeight(hoverRow.net_weight), mono: true, color:'#16A34A' },
+              { label:'Product',    value: String(hoverRow.product || '—') },
+              { label:'Driver',     value: String(hoverRow.driver  || '—') },
+              { label:'Plate',      value: String(hoverRow.plate   || '—'), mono: true },
+              { label:'Inbound',    value: formatDateTime(hoverRow.inbound), mono: true },
+            ] as { label:string; value:string; mono?:boolean; color?:string }[]).map(({ label, value, mono, color }) => (
+              <div key={label} style={{ marginBottom: 7 }}>
+                <div style={{ fontSize:9, fontWeight:600, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>{label}</div>
+                <div
+                  style={{ fontSize:13, fontWeight: mono ? 700 : 500, fontFamily: mono ? "'DM Mono',monospace" : undefined, color: color || undefined }}
+                  className="text-gray-800 dark:text-enterprise-silver"
+                >{value}</div>
+              </div>
+            ))}
+            {(() => {
+              const st = hoverRow.status || 'Unknown';
+              const scMap: Record<string,{bg:string;color:string;dot:string}> = {
+                Valid:     {bg:'#DCFCE7',color:'#16A34A',dot:'#22C55E'},
+                Cancelled: {bg:'#FEE2E2',color:'#DC2626',dot:'#EF4444'},
+                Void:      {bg:'#F3F4F6',color:'#6B7280',dot:'#9CA3AF'},
+                Pending:   {bg:'#FEF3C7',color:'#D97706',dot:'#F97316'},
+              };
+              const sc = scMap[st] || scMap['Void'];
+              return (
+                <div style={{ marginTop:4, display:'inline-flex', alignItems:'center', gap:5, background:sc.bg, color:sc.color, borderRadius:999, padding:'2px 10px', fontSize:11, fontWeight:600 }}>
+                  <span style={{ width:6, height:6, borderRadius:'50%', background:sc.dot, display:'inline-block' }} />
+                  {st}
+                </div>
+              );
+            })()}
+          </div>
+        )}
 
         {/* Pagination Footer */}
         {total > 0 && (
@@ -2254,6 +3107,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
         )}
       </div>
     </div>
+    </>
   );
 }
 

@@ -54,7 +54,8 @@ const mapTransaction = (row: Record<string, any>): Transaction => ({
   weigher: row.weigher ?? null,
   no_of_bags: row.no_of_bags ?? row.No_of_Bags ?? null,
   created_at: row.created_at ?? row.createdAt ?? null,
-  updated_at: row.updated_at ?? row.updatedAt ?? null
+  updated_at: row.updated_at ?? row.updatedAt ?? null,
+  resolved_date: row.resolved_date ?? null,
 });
 
 export interface TransacListParams {
@@ -62,6 +63,8 @@ export interface TransacListParams {
   pageSize?: number;
   search?: string;
   status?: string;
+  typeVeh?: string;
+  product?: string;
   dateFrom?: string;
   dateTo?: string;
   sortBy?: string;
@@ -279,6 +282,18 @@ const getAuditLog = async (page: number = 1, pageSize: number = 20): Promise<Aud
   return await response.json() as AuditLogResult;
 };
 
+export interface FilterOptions {
+  statuses: string[];
+  vehicles: string[];
+  products: string[];
+}
+
+const getFilterOptions = async (): Promise<FilterOptions> => {
+  const response = await fetch(withBase('/api/transac/filter-options'), { credentials: 'include' });
+  if (!response.ok) return { statuses: [], vehicles: [], products: [] };
+  return response.json();
+};
+
 export const transacApi = {
   list,
   get,
@@ -293,6 +308,7 @@ export const transacApi = {
   bulkUpdateStatus,
   bulkExportCsv,
   getTransactionAudit,
-  getAuditLog
+  getAuditLog,
+  getFilterOptions
 };
 

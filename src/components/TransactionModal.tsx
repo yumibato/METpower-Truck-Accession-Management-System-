@@ -785,7 +785,7 @@ export default function TransactionModal({
             <div className="flex justify-between items-center">
               <button
                 onClick={() => setShowAuditLog(true)}
-                className="flex items-center space-x-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="btn-ghost flex items-center space-x-2"
               >
                 <Clock className="w-4 h-4" />
                 <span>View Activity Log</span>
@@ -794,14 +794,14 @@ export default function TransactionModal({
                 {onEdit && (
                   <button
                     onClick={onEdit}
-                    className="px-4 py-2 bg-neon-cyan-glow text-white rounded-lg hover:bg-neon-cyan-bright dark:shadow-neon-cyan transition-colors"
+                    className="btn-primary"
                   >
                     Edit Transaction
                   </button>
                 )}
                 <button
                   onClick={onClose}
-                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="btn-ghost"
                 >
                   Close
                 </button>
@@ -814,14 +814,14 @@ export default function TransactionModal({
             <div className="flex justify-end space-x-3">
               <button
                 onClick={onClose}
-                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="btn-ghost"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSave}
                 disabled={loading}
-                className="flex items-center space-x-2 px-6 py-2 bg-gradient-to-r from-neon-cyan-glow to-teal-600 hover:from-neon-cyan-bright hover:to-teal-700 dark:shadow-neon-cyan text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                className="btn-primary flex items-center space-x-2"
               >
                 {loading ? (
                   <>

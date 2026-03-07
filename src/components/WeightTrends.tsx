@@ -1,9 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePersistentState } from '../hooks/usePersistentState';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { Calendar, Clock, RotateCcw, Bot } from 'lucide-react';
 import InfoDrawer from './InfoDrawer';
+import { ChartCard } from './ChartCard';
 import { VisualizationDataUnion } from '../types/VisualizationData';
+import {
+  chartGridConfig,
+  chartXAxisConfig,
+  chartYAxisConfig,
+  chartTooltipConfig,
+  chartTooltipConfigDark,
+  chartLegendConfig,
+} from '../utils/chartConfig';
 
 function useDarkMode() {
   const [isDark, setIsDark] = useState(() =>
@@ -31,10 +40,12 @@ interface WeightTrendsProps {
 }
 
 export default function WeightTrends({ onViewSource }: WeightTrendsProps) {
+  const isDark = useDarkMode();
   const [data, setData] = useState<WeightData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedData, setSelectedData] = useState<VisualizationDataUnion | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   // Date/Time Range State — persisted across refreshes
   const [startDate, setStartDate] = usePersistentState<string>('weighttrends-startDate', '');
@@ -88,6 +99,7 @@ export default function WeightTrends({ onViewSource }: WeightTrendsProps) {
   }, [dateRangeReady, fetchWeightTrends]);
 
   const handleChartClick = (point: any) => {
+    setSelectedDate(point.transac_date);
     const transformedData: VisualizationDataUnion = {
       type: 'weight',
       timestamp: point.transac_date,
@@ -110,16 +122,6 @@ export default function WeightTrends({ onViewSource }: WeightTrendsProps) {
   const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEndDate(e.target.value);
   };
-
-  const isDark = useDarkMode();
-
-  // Theme-aware colours for Recharts (SVG props, not Tailwind)
-  const axisStroke    = isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)';
-  const gridStroke    = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
-  const tickFill      = isDark ? '#9ca3af' : '#4b5563';
-  const tooltipBg     = isDark ? '#1e2433' : '#ffffff';
-  const tooltipBorder = isDark ? '#374151' : '#d1d5db';
-  const tooltipText   = isDark ? '#f3f4f6' : '#111827';
 
   return (
     <div className="space-y-6">
@@ -154,71 +156,44 @@ export default function WeightTrends({ onViewSource }: WeightTrendsProps) {
       </div>
 
       {/* Chart */}
-      <div className="bg-white dark:bg-midnight-900 rounded-xl border border-gray-200 dark:border-midnight-600 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 dark:border-midnight-700 flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Daily Weight Trends</h3>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Gross, net and tare weight per day — click a point to inspect</p>
-          </div>
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent('explain-chart', { detail: { message: 'Explain the Weight Trends chart. What does it show, how do I read the three lines, what patterns should I look for, and what actions can I take based on this data?' } }))}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800/50 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors shrink-0"
-            title="Ask AI to explain this chart"
-          >
-            <Bot className="w-3.5 h-3.5" /> Explain
-          </button>
-        </div>
+      <ChartCard title="Daily Weight Trends">
         {loading ? (
           <div className="h-72 flex flex-col items-center justify-center gap-3">
             <div className="animate-spin rounded-full h-7 w-7 border-2 border-blue-500 border-t-transparent" />
-            <p className="text-xs text-gray-400 dark:text-gray-500">Loading weight trends…</p>
+            <p className="text-xs text-text-muted dark:text-dark-text-muted">Loading weight trends…</p>
           </div>
         ) : error ? (
           <div className="h-72 flex items-center justify-center">
-            <p className="text-sm text-red-500">{error}</p>
+            <p className="text-sm text-state-red dark:text-dark-state-red">{error}</p>
           </div>
         ) : data.length === 0 ? (
           <div className="h-72 flex items-center justify-center">
-            <p className="text-sm text-gray-400 dark:text-gray-500">No data available for selected date range.</p>
+            <p className="text-sm text-text-muted dark:text-dark-text-muted">No data available for selected date range.</p>
           </div>
         ) : (
-          <div className="p-6">
-          <ResponsiveContainer width="100%" height={380}>
-            <AreaChart data={data} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height={320}>
+            <AreaChart data={data} margin={{ top: 8, right: 16, left: -20, bottom: 0 }}>
               <defs>
-                <linearGradient id="colorGross" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.6} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                <linearGradient id="gradTonnage" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor='var(--chart-blue)' stopOpacity={0.15} />
+                  <stop offset="100%" stopColor='var(--chart-blue)' stopOpacity={0} />
                 </linearGradient>
-                <linearGradient id="colorNet" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#10b981" stopOpacity={0.6} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                <linearGradient id="gradAvg" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor='var(--chart-green)' stopOpacity={0.12} />
+                  <stop offset="100%" stopColor='var(--chart-green)' stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+              <CartesianGrid {...chartGridConfig} />
               <XAxis
+                {...chartXAxisConfig}
                 dataKey="transac_date"
-                stroke={axisStroke}
-                tick={{ fill: tickFill, fontSize: 11 }}
                 tickFormatter={(val) => {
                   const d = new Date(val);
-                  return `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`;
+                  return `${d.getMonth() + 1}/${d.getDate()}`;
                 }}
-              />
-              <YAxis
-                stroke={axisStroke}
-                tick={{ fill: tickFill, fontSize: 11 }}
-                tickFormatter={(val) => `${(val / 1000).toFixed(0)}k`}
               />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: tooltipBg,
-                  border: `1px solid ${tooltipBorder}`,
-                  borderRadius: '8px',
-                  color: tooltipText,
-                  fontSize: '12px',
-                }}
-                labelStyle={{ color: tooltipText, fontWeight: 600, marginBottom: 4 }}
+                {...(isDark ? chartTooltipConfigDark : chartTooltipConfig)}
                 labelFormatter={(label) => {
                   const d = new Date(label);
                   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
@@ -228,41 +203,40 @@ export default function WeightTrends({ onViewSource }: WeightTrendsProps) {
                   name === 'gross_weight' ? 'Gross' : name === 'net_weight' ? 'Net' : 'Tare'
                 ]}
               />
-              <Legend
-                formatter={(value) =>
-                  value === 'gross_weight' ? 'Gross Weight' : value === 'net_weight' ? 'Net Weight' : 'Tare Weight'
-                }
-                wrapperStyle={{ color: tickFill, fontSize: 12 }}
-              />
+              <Legend {...chartLegendConfig} />
+              
+              {/* Total Tonnage */}
               <Area
-                type="monotone"
                 dataKey="gross_weight"
-                name="gross_weight"
-                stroke="#3b82f6"
+                name="Gross Weight"
+                stroke='var(--chart-blue)'
                 strokeWidth={2}
-                fillOpacity={1}
-                fill="url(#colorGross)"
+                fill='url(#gradTonnage)'
                 dot={false}
-                activeDot={{ r: 5, cursor: 'pointer' }}
+                activeDot={{ r: 5, fill: 'var(--chart-blue)', stroke: 'var(--bg-card)', strokeWidth: 2 }}
                 onClick={(state: any) => state?.payload && handleChartClick(state.payload)}
               />
+              
+              {/* Average Weight */}
               <Area
-                type="monotone"
                 dataKey="net_weight"
-                name="net_weight"
-                stroke="#10b981"
+                name="Net Weight"
+                stroke='var(--chart-green)'
                 strokeWidth={2}
-                fillOpacity={1}
-                fill="url(#colorNet)"
+                fill='url(#gradAvg)'
                 dot={false}
-                activeDot={{ r: 5, cursor: 'pointer' }}
+                activeDot={{ r: 5, fill: 'var(--chart-green)', stroke: 'var(--bg-card)', strokeWidth: 2 }}
                 onClick={(state: any) => state?.payload && handleChartClick(state.payload)}
               />
+              
+              {/* Highlight selected date */}
+              {selectedDate && (
+                <ReferenceLine x={selectedDate} stroke='var(--chart-blue)' strokeDasharray='3 3' strokeWidth={1.5} />
+              )}
             </AreaChart>
           </ResponsiveContainer>
-          </div>
         )}
-      </div>
+      </ChartCard>
 
       {/* Info Drawer */}
       {selectedData && (

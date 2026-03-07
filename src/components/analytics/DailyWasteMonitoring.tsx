@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { usePersistentState } from '../../hooks/usePersistentState';
 import { useDarkMode } from '../../hooks/useDarkMode';
+import { ChartCard } from '../ChartCard';
+import { chartGridConfig, chartXAxisConfig, chartYAxisConfig, chartTooltipConfig, chartTooltipConfigDark } from '../../utils/chartConfig';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -24,12 +26,15 @@ type SubstrateFilter = 'All' | 'Pineapple' | 'Manure' | 'Sludge' | 'Other';
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const SUBSTRATE_COLORS: Record<string, string> = {
-  Pineapple: '#22c55e',
-  Manure:    '#f59e0b',
-  Sludge:    '#3b82f6',
+  Pineapple: 'var(--chart-green)',
+  Manure:    'var(--chart-amber)',
+  Sludge:    'var(--chart-blue)',
   Other:     '#9ca3af',
 };
-const SOURCE_COLORS = ['#22c55e', '#f59e0b', '#3b82f6', '#ec4899', '#9ca3af'];
+const SOURCE_COLORS = [
+  'var(--chart-green)', 'var(--chart-amber)', 'var(--chart-blue)',
+  'var(--chart-pink)', '#9ca3af'
+];
 const RADIAN = Math.PI / 180;
 
 function fmtDay(d: string): string {
@@ -477,50 +482,38 @@ export default function DailyWasteMonitoring() {
           {/* ════════════════════════════════════════════════════════════
               CHART 1 — Daily feedstock stacked bar
           ════════════════════════════════════════════════════════════ */}
-          <div className={sectionCard}>
-            <div className={`px-5 py-3 border-b ${divider} flex items-center justify-between`}>
-              <div>
-                <p className={`text-sm font-semibold ${text}`}>Daily Feedstock Breakdown</p>
-                <p className={`text-xs ${muted}`}>Tonnes received per substrate · click any bar to drill into transactions</p>
+          <ChartCard title="Daily Feedstock Breakdown">
+            {feedChartData.length === 0 ? (
+              <div className={`flex flex-col items-center justify-center h-44 gap-2 ${muted}`}>
+                <Package2 className="w-8 h-8 opacity-30" />
+                <span className="text-sm">No feedstock data in range</span>
               </div>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
-                {feedChartData.length} days
-              </span>
-            </div>
-            <div className="p-4">
-              {feedChartData.length === 0 ? (
-                <div className={`flex flex-col items-center justify-center h-44 gap-2 ${muted}`}>
-                  <Package2 className="w-8 h-8 opacity-30" />
-                  <span className="text-sm">No feedstock data in range</span>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={290}>
-                  <BarChart data={feedChartData} margin={{ top: 4, right: 12, left: 0, bottom: 0 }} barCategoryGap="30%">
-                    <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#1f2937' : '#f3f4f6'} vertical={false} />
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: isDark ? '#6b7280' : '#9ca3af' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-                    <YAxis tick={{ fontSize: 10, fill: isDark ? '#6b7280' : '#9ca3af' }} axisLine={false} tickLine={false} unit="t" width={38} />
-                    <Tooltip
-                      cursor={{ fill: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}
-                      contentStyle={{ background: isDark ? '#111827' : '#fff', border: `1px solid ${isDark ? '#374151' : '#e5e7eb'}`, borderRadius: 10, fontSize: 12, padding: '8px 12px' }}
-                      formatter={(v: number, name: string) => [`${v.toFixed(2)} t`, name]}
+            ) : (
+              <ResponsiveContainer width="100%" height={290}>
+                <BarChart data={feedChartData} margin={{ top: 8, right: 12, left: -20, bottom: 0 }} barCategoryGap="30%">
+                  <CartesianGrid {...chartGridConfig} />
+                  <XAxis {...chartXAxisConfig} dataKey="label" />
+                  <YAxis hide unit="t" />
+                  <Tooltip
+                    {...(isDark ? chartTooltipConfigDark : chartTooltipConfig)}
+                    formatter={(v: number, name: string) => [`${v.toFixed(2)} t`, name]}
+                  />
+                  <Legend />
+                  {visibleSubstrates.map((s, i) => (
+                    <Bar key={s} dataKey={s} stackId="a" name={s}
+                      fill={SUBSTRATE_COLORS[s] ?? '#9ca3af'}
+                      radius={i === visibleSubstrates.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                      cursor="pointer"
+                      onClick={(data) => {
+                        const day = feedstock.find(f => fmtDay(f.day?.slice(0, 10)) === data.label)?.day?.slice(0, 10);
+                        if (day) setDrill({ date: day, substrate: s as SubstrateFilter });
+                      }}
                     />
-                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-                    {visibleSubstrates.map((s, i) => (
-                      <Bar key={s} dataKey={s} stackId="a" name={s}
-                        fill={SUBSTRATE_COLORS[s] ?? '#9ca3af'}
-                        radius={i === visibleSubstrates.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
-                        cursor="pointer"
-                        onClick={(data) => {
-                          const day = feedstock.find(f => fmtDay(f.day?.slice(0, 10)) === data.label)?.day?.slice(0, 10);
-                          if (day) setDrill({ date: day, substrate: s as SubstrateFilter });
-                        }}
-                      />
-                    ))}
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </ChartCard>
 
           {/* ════════════════════════════════════════════════════════════
               CHART 2 — Source pie  +  Reconciliation gauge
@@ -528,106 +521,75 @@ export default function DailyWasteMonitoring() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
             {/* Source distribution */}
-            <div className={sectionCard}>
-              <div className={`px-5 py-3 border-b ${divider}`}>
-                <p className={`text-sm font-semibold ${text}`}>Waste Source Distribution</p>
-                <p className={`text-xs ${muted}`}>Net tonnage by supply origin</p>
-              </div>
-              <div className="p-4">
-                {sourcePie.length === 0 ? (
-                  <div className={`flex flex-col items-center justify-center h-44 gap-2 ${muted}`}>
-                    <Droplets className="w-8 h-8 opacity-30" />
-                    <span className="text-sm">No source data</span>
+            <ChartCard title="Waste Source Distribution">
+              {sourcePie.length === 0 ? (
+                <div className={`flex flex-col items-center justify-center h-44 gap-2 ${muted}`}>
+                  <Droplets className="w-8 h-8 opacity-30" />
+                  <span className="text-sm">No source data</span>
+                </div>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie data={sourcePie.map(s => ({ name: s.source, value: parseFloat(((s.net_kg ?? 0) / 1000).toFixed(2)) }))}
+                        cx="50%" cy="50%" innerRadius={45} outerRadius={85} paddingAngle={2}
+                        dataKey="value" labelLine={false} label={PieLabel}>
+                        {sourcePie.map((_, i) => <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip formatter={(v: number) => [`${v.toFixed(2)} t`, '']}
+                        contentStyle={{ background: isDark ? '#111827' : '#fff', border: `1px solid ${isDark ? '#374151' : '#e5e7eb'}`, borderRadius: 10, fontSize: 12 }} />
+                      <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {/* Source legend table */}
+                  <div className={`mt-1 pt-3 border-t ${divider} space-y-1`}>
+                    {sourcePie.map((s, i) => (
+                      <div key={s.source} className="flex items-center justify-between text-xs">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: SOURCE_COLORS[i % SOURCE_COLORS.length] }} />
+                          <span className={muted}>{s.source}</span>
+                        </span>
+                        <span className={`font-semibold ${text}`}>{((s.net_kg ?? 0) / 1000).toFixed(1)} t
+                          <span className={`ml-1.5 font-normal ${muted}`}>· {s.trips} trips</span>
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                ) : (
-                  <>
-                    <ResponsiveContainer width="100%" height={220}>
-                      <PieChart>
-                        <Pie data={sourcePie.map(s => ({ name: s.source, value: parseFloat(((s.net_kg ?? 0) / 1000).toFixed(2)) }))}
-                          cx="50%" cy="50%" innerRadius={45} outerRadius={85} paddingAngle={2}
-                          dataKey="value" labelLine={false} label={PieLabel}>
-                          {sourcePie.map((_, i) => <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />)}
-                        </Pie>
-                        <Tooltip formatter={(v: number) => [`${v.toFixed(2)} t`, '']}
-                          contentStyle={{ background: isDark ? '#111827' : '#fff', border: `1px solid ${isDark ? '#374151' : '#e5e7eb'}`, borderRadius: 10, fontSize: 12 }} />
-                        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    {/* Source legend table */}
-                    <div className={`mt-1 pt-3 border-t ${divider} space-y-1`}>
-                      {sourcePie.map((s, i) => (
-                        <div key={s.source} className="flex items-center justify-between text-xs">
-                          <span className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: SOURCE_COLORS[i % SOURCE_COLORS.length] }} />
-                            <span className={muted}>{s.source}</span>
-                          </span>
-                          <span className={`font-semibold ${text}`}>{((s.net_kg ?? 0) / 1000).toFixed(1)} t
-                            <span className={`ml-1.5 font-normal ${muted}`}>· {s.trips} trips</span>
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+                </>
+              )}
+            </ChartCard>
 
             {/* Reconciliation gauge */}
-            <div className={sectionCard}>
-              <div className={`px-5 py-3 border-b ${divider} flex items-center justify-between`}>
-                <div>
-                  <p className={`text-sm font-semibold ${text}`}>Daily Reconciliation</p>
-                  <p className={`text-xs ${muted}`}>Actual intake vs daily target</p>
-                </div>
-                {/* Target editor */}
-                <div className="flex items-center gap-2">
-                  <Target className={`w-3.5 h-3.5 ${muted}`} />
-                  {editTarget ? (
-                    <input ref={targetInputRef} type="number" min={1} step={10}
-                      defaultValue={dailyTarget}
-                      onBlur={e => { setDailyTarget(parseInt(e.target.value) || dailyTarget); setEditTarget(false); }}
-                      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                      className={`w-20 rounded-lg border px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 ${inputCls}`}
-                    />
-                  ) : (
-                    <button onClick={() => { setEditTarget(true); setTimeout(() => targetInputRef.current?.focus(), 50); }}
-                      className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-colors ${isDark ? 'border-gray-600 text-gray-300 hover:border-blue-500' : 'border-gray-200 text-gray-600 hover:border-blue-400'}`}>
-                      {dailyTarget} t/day ✎
-                    </button>
-                  )}
-                </div>
+            <ChartCard title="Daily Reconciliation">
+              {/* Date picker for gauge */}
+              <div className={`flex items-center gap-2 mb-4 px-3 py-1.5 rounded-lg border text-xs w-fit ${isDark ? 'border-gray-600 bg-midnight-800' : 'border-gray-200 bg-gray-50'}`}>
+                <Calendar className={`w-3.5 h-3.5 ${muted}`} />
+                <input type="date" value={gaugeDate} onChange={e => setGaugeDate(e.target.value)}
+                  min={appliedStart} max={appliedEnd}
+                  className={`bg-transparent text-xs focus:outline-none ${text}`} />
               </div>
-              <div className="p-4">
-                {/* Date picker for gauge */}
-                <div className={`flex items-center gap-2 mb-4 px-3 py-1.5 rounded-lg border text-xs w-fit ${isDark ? 'border-gray-600 bg-midnight-800' : 'border-gray-200 bg-gray-50'}`}>
-                  <Calendar className={`w-3.5 h-3.5 ${muted}`} />
-                  <input type="date" value={gaugeDate} onChange={e => setGaugeDate(e.target.value)}
-                    min={appliedStart} max={appliedEnd}
-                    className={`bg-transparent text-xs focus:outline-none ${text}`} />
-                </div>
-                <WasteGauge actual={gaugeActual} target={gaugeTarget} isDark={isDark} />
-                {/* That day's substrate breakdown */}
-                <div className={`mt-4 pt-3 border-t ${divider} space-y-1.5`}>
-                  {allSubstrates.map(sub => {
-                    const subRows = feedstock.filter(f => f.day?.slice(0, 10) === gaugeDate && f.substrate_category === sub);
-                    const subKg = subRows.reduce((s, r) => s + (r.net_kg ?? 0), 0);
-                    if (!subKg) return null;
-                    const pct = gaugeActual > 0 ? (subKg / gaugeActual) * 100 : 0;
-                    return (
-                      <div key={sub} className="flex items-center gap-2 text-xs">
-                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: SUBSTRATE_COLORS[sub] }} />
-                        <span className={`flex-1 ${muted}`}>{sub}</span>
-                        {/* mini progress bar */}
-                        <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
-                          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: SUBSTRATE_COLORS[sub] }} />
-                        </div>
-                        <span className={`font-semibold w-16 text-right ${text}`}>{(subKg / 1000).toFixed(2)} t</span>
+              <WasteGauge actual={gaugeActual} target={gaugeTarget} isDark={isDark} />
+              {/* That day's substrate breakdown */}
+              <div className={`mt-4 pt-3 border-t ${divider} space-y-1.5`}>
+                {allSubstrates.map(sub => {
+                  const subRows = feedstock.filter(f => f.day?.slice(0, 10) === gaugeDate && f.substrate_category === sub);
+                  const subKg = subRows.reduce((s, r) => s + (r.net_kg ?? 0), 0);
+                  if (!subKg) return null;
+                  const pct = gaugeActual > 0 ? (subKg / gaugeActual) * 100 : 0;
+                  return (
+                    <div key={sub} className="flex items-center gap-2 text-xs">
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: SUBSTRATE_COLORS[sub] }} />
+                      <span className={`flex-1 ${muted}`}>{sub}</span>
+                      {/* mini progress bar */}
+                      <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: SUBSTRATE_COLORS[sub] }} />
                       </div>
-                    );
-                  })}
-                </div>
+                      <span className={`font-semibold w-16 text-right ${text}`}>{(subKg / 1000).toFixed(2)} t</span>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
+            </ChartCard>
           </div>
 
           {/* ════════════════════════════════════════════════════════════

@@ -27,4 +27,5 @@ export interface Transaction {
   no_of_bags?: number | string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  resolved_date?: string | null;
 }

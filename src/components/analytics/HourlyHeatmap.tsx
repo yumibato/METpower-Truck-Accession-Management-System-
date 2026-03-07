@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePersistentState } from '../../hooks/usePersistentState';
 import { Calendar, RotateCcw, Bot } from 'lucide-react';
+import { ChartCard } from '../ChartCard';
 
 interface HeatCell { dow: number; hour: number; count: number; }
 
@@ -97,30 +98,7 @@ export default function HourlyHeatmap() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-midnight-900 rounded-xl border border-gray-200 dark:border-midnight-600 shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-midnight-700">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Hourly Traffic Heatmap</h3>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                const total = data.reduce((s, d) => s + d.count, 0);
-                const peak = data.length ? data.reduce((a, b) => b.count > a.count ? b : a) : null;
-                const peakLabel = peak ? `${DOW_LABELS[peak.dow - 1]} at ${formatHour(peak.hour)} (${peak.count} trips)` : 'n/a';
-                window.dispatchEvent(new CustomEvent('explain-chart', { detail: { message: `Explain the Hourly Traffic Heatmap (${startDate} to ${endDate}). Total trips plotted: ${total}. Peak cell: ${peakLabel}. What are the busiest days and hours, what patterns are visible in truck arrivals, are there off-peak bottlenecks or gaps, and what scheduling recommendations can be made?` } }));
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800/50 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors shrink-0"
-              title="Ask AI to explain this chart"
-            >
-              <Bot className="w-3.5 h-3.5" /> Explain
-            </button>
-            {hovered && (
-              <span className="text-xs text-gray-500 dark:text-enterprise-muted">
-                {DOW_LABELS[hovered.dow - 1]} {formatHour(hovered.hour)} — <strong className="text-gray-700 dark:text-gray-200">{hoveredCount} trips</strong>
-              </span>
-            )}
-          </div>
-        </div>
-
+      <ChartCard title="Hourly Traffic Heatmap">
         {loading ? (
           <div className="h-64 flex flex-col items-center justify-center gap-3">
             <div className="animate-spin rounded-full h-7 w-7 border-2 border-blue-500 border-t-transparent" />
@@ -129,9 +107,9 @@ export default function HourlyHeatmap() {
         ) : error ? (
           <div className="h-64 flex items-center justify-center"><p className="text-sm text-red-500">{error}</p></div>
         ) : (
-          <div className="p-6 overflow-x-auto">
-            {/* Hour axis labels */}
-            <div className="flex items-center gap-1 mb-1 ml-12">
+          <div className="overflow-x-auto">
+            {/* Hour labels row */}
+            <div className="flex items-center gap-1 mb-2 ml-10">
               {HOURS.map(h => (
                 <div key={h} className="flex-1 text-center text-[10px] text-gray-400 dark:text-enterprise-muted min-w-[22px]">
                   {h % 3 === 0 ? formatHour(h) : ''}
@@ -141,7 +119,6 @@ export default function HourlyHeatmap() {
             {/* Grid rows: one per day */}
             {[1,2,3,4,5,6,7].map(dow => (
               <div key={dow} className="flex items-center gap-1 mb-1">
-                {/* Day label */}
                 <div className="w-10 flex-shrink-0 text-xs text-right pr-2 font-medium text-gray-500 dark:text-enterprise-muted">
                   {DOW_LABELS[dow - 1]}
                 </div>
@@ -177,9 +154,14 @@ export default function HourlyHeatmap() {
               ))}
               <span className="text-xs text-gray-400 dark:text-enterprise-muted">High</span>
             </div>
+            {hovered && (
+              <p className="text-xs text-gray-500 dark:text-enterprise-muted mt-2 text-right">
+                {DOW_LABELS[hovered.dow - 1]} {formatHour(hovered.hour)} — <strong className="text-gray-700 dark:text-gray-200">{hoveredCount} trips</strong>
+              </p>
+            )}
           </div>
         )}
-      </div>
+      </ChartCard>
     </div>
   );
 }

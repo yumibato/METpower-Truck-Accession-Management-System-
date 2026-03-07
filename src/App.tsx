@@ -8,9 +8,11 @@ import ActivityLogPage from './components/pages/ActivityLogPage';
 import AnalyticsPage from './components/pages/AnalyticsPage';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import AIChat from './components/AIChat';
+import { NotificationContainer } from './components/notifications/NotificationContainer';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { DesignSystemProvider } from './contexts/DesignSystemContext';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -34,9 +36,10 @@ function AuthenticatedAIChat() {
 function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <NotificationProvider>
+      <DesignSystemProvider>
+        <AuthProvider>
+          <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <NotificationProvider>
             <div className="relative min-h-screen theme-root transition-colors duration-300">
 
               {/* ── Global ambient glow orbs ── */}
@@ -95,9 +98,11 @@ function App() {
               <AuthenticatedAIChat />
               </div>
             </div>
+          <NotificationContainer />
           </NotificationProvider>
         </Router>
       </AuthProvider>
+      </DesignSystemProvider>
     </ThemeProvider>
   );
 }

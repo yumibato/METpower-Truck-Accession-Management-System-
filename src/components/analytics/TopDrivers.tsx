@@ -1,10 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePersistentState } from '../../hooks/usePersistentState';
-import { Calendar, RotateCcw, Bot } from 'lucide-react';
+import { Calendar, RotateCcw } from 'lucide-react';
+import { ChartCard } from '../ChartCard';
 
 interface Row { driver: string; trips: number; total_weight: number; }
 
-const PALETTE = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7','#e11d48','#65a30d','#0284c7'];
+const PALETTE = [
+  'var(--chart-blue)', 'var(--chart-green)', 'var(--chart-amber)', 'var(--chart-red)',
+  'var(--chart-purple)', 'var(--chart-pink)', 'var(--chart-teal)', 'var(--chart-indigo)',
+  '#84cc16', '#06b6d4', '#a855f7', '#e11d48', '#65a30d', '#0284c7', '#f59e0b',
+];
 
 export default function TopDrivers() {
   const [data, setData]           = useState<Row[]>([]);
@@ -69,31 +74,16 @@ export default function TopDrivers() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-midnight-900 rounded-xl border border-gray-200 dark:border-midnight-600 shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-midnight-700">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Top Drivers by Performance</h3>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                const top = data.slice(0,3).map(d => `${d.driver}: ${metric === 'weight' ? (d.total_weight/1000).toFixed(1)+'t' : d.trips+' trips'}`).join(', ');
-                window.dispatchEvent(new CustomEvent('explain-chart', { detail: { message: `Explain the Top Drivers chart (${startDate} to ${endDate}). Top performers: ${top || 'no data yet'}. Currently showing ${metric === 'weight' ? 'tonnage' : 'trip count'}. Who is leading, what does the performance gap between drivers mean, are there any concerns like overworked or underutilized drivers, and what actions should management take?` } }));
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800/50 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors shrink-0"
-              title="Ask AI to explain this chart"
-            >
-              <Bot className="w-3.5 h-3.5" /> Explain
-            </button>
-            <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-midnight-600 text-xs font-medium">
-              {(['weight','trips'] as const).map(m => (
-                <button key={m} onClick={() => setMetric(m)}
-                  className={`px-3 py-1.5 transition-colors ${metric === m ? 'bg-blue-600 text-white' : 'bg-white dark:bg-midnight-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-midnight-700'}`}>
-                  {m === 'weight' ? 'Tonnage' : 'Trips'}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
+      <ChartCard
+        title="Top Drivers by Performance"
+        toggle={{
+          options: [
+            { label: 'Tonnage', value: 'weight' },
+            { label: 'Trips', value: 'trips' }
+          ],
+          onChange: (v) => setMetric(v as 'weight' | 'trips'),
+          current: metric
+        }}>
         {loading ? (
           <div className="h-64 flex flex-col items-center justify-center gap-3">
             <div className="animate-spin rounded-full h-7 w-7 border-2 border-blue-500 border-t-transparent" />
@@ -104,7 +94,7 @@ export default function TopDrivers() {
         ) : data.length === 0 ? (
           <div className="h-64 flex items-center justify-center"><p className="text-sm text-gray-400 dark:text-gray-500">No data.</p></div>
         ) : (
-          <div className="p-6 space-y-1">
+          <div className="space-y-1">
             <div className="flex items-center gap-3 pb-2 border-b border-gray-100 dark:border-midnight-700 mb-3">
               <div className="w-3 flex-shrink-0" />
               <div className="w-7 text-xs font-semibold text-gray-400 dark:text-enterprise-muted">Rank</div>
@@ -138,7 +128,7 @@ export default function TopDrivers() {
             })}
           </div>
         )}
-      </div>
+      </ChartCard>
     </div>
   );
 }
